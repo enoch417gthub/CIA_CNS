@@ -1,0 +1,2307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoLab — Bit-Level Interactive Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b14;--bg2:#0c1220;--bg3:#111a2e;--panel:#0e1628;
+  --border:rgba(0,200,255,0.12);--border2:rgba(0,200,255,0.28);
+  --cyan:#00c8ff;--green:#00ff9d;--orange:#ff8c00;--pink:#ff4db8;--yellow:#ffe066;--red:#ff4444;
+  --text:#d0e4f7;--text2:#6a8caa;--text3:#304060;
+  --mono:'JetBrains Mono',monospace;--head:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.6;min-height:100vh}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:rgba(0,200,255,0.3);border-radius:3px}
+
+/* HERO */
+.hero{padding:60px 20px 40px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid var(--border)}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(0,200,255,0.07),transparent 70%);pointer-events:none}
+.scanlines{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;opacity:.4}
+.hero-chip{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--cyan);border:1px solid var(--border2);padding:4px 14px;border-radius:99px;display:inline-block;margin-bottom:18px}
+.hero h1{font-family:var(--head);font-size:clamp(26px,5vw,52px);font-weight:700;color:#fff;letter-spacing:-1px;line-height:1.1;margin-bottom:14px}
+.hero h1 em{color:var(--cyan);font-style:normal}
+.hero p{color:var(--text2);font-size:13px;max-width:580px;margin:0 auto 28px;font-family:var(--mono)}
+.hero-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;font-size:11px}
+.leg{display:flex;align-items:center;gap:6px;color:var(--text2)}
+.leg-dot{width:10px;height:10px;border-radius:2px}
+
+/* NAV */
+.nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;display:flex;gap:0;overflow-x:auto;position:sticky;top:0;z-index:100}
+.nav-btn{font-family:var(--mono);font-size:11px;padding:12px 16px;border:none;background:transparent;color:var(--text2);cursor:pointer;letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{color:var(--text);background:rgba(0,200,255,0.04)}
+.nav-btn.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.nav-sep{color:var(--text3);padding:12px 4px;font-size:10px;align-self:center}
+
+/* MAIN LAYOUT */
+.container{max-width:1400px;margin:0 auto;padding:0 16px}
+.page{display:none;padding:24px 0 80px;animation:pageIn .2s ease}
+.page.active{display:block}
+@keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.page-inner{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start}
+.left-col{min-width:0}
+.right-col{position:sticky;top:52px;max-height:calc(100vh - 70px);overflow-y:auto;padding-right:4px}
+.right-col::-webkit-scrollbar{width:4px}.right-col::-webkit-scrollbar-track{background:transparent}.right-col::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.algo-panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.algo-panel-head{padding:14px 16px 10px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.aph-tag{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+.aph-title{font-family:var(--head);font-size:15px;font-weight:600;color:#fff}
+.algo-panel-tabs{display:flex;border-bottom:1px solid var(--border)}
+.aptab{font-family:var(--mono);font-size:10px;padding:8px 14px;border:none;background:transparent;color:var(--text3);cursor:pointer;letter-spacing:.5px;border-bottom:2px solid transparent;transition:all .15s;flex:1;text-align:center}
+.aptab:hover{color:var(--text2)}
+.aptab.active{color:var(--cyan);border-bottom-color:var(--cyan);background:rgba(0,200,255,0.04)}
+.aptab-pane{display:none;padding:14px 16px}
+.aptab-pane.active{display:block}
+.pseudo{font-family:var(--mono);font-size:11px;line-height:2;color:var(--text2)}
+.pseudo .kw{color:var(--cyan);font-weight:600}
+.pseudo .fn{color:var(--yellow)}
+.pseudo .cm{color:var(--text3)}
+.pseudo .num{color:var(--orange)}
+.pseudo .vr{color:var(--green)}
+.pseudo-line{display:block;white-space:pre}
+.cx-table{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)}
+.cx-table td,.cx-table th{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left}
+.cx-table th{color:var(--text3);font-size:9px;letter-spacing:1px;text-transform:uppercase}
+.cx-ok{color:var(--green)!important}.cx-warn{color:var(--orange)!important}.cx-bad{color:var(--red)!important}
+.formula-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:8px 0;font-family:var(--mono);font-size:12px;line-height:2}
+.formula-box .fl{color:var(--yellow)}.formula-box .fv{color:var(--cyan)}.formula-box .fo{color:var(--orange)}.formula-box .fc{color:var(--text3);font-size:10px}
+@media(max-width:960px){.page-inner{grid-template-columns:1fr}.right-col{position:static;max-height:none}}
+
+/* ALGO HEADER */
+.algo-header{margin-bottom:28px}
+.algo-tag{font-size:10px;letter-spacing:2px;color:var(--text2);text-transform:uppercase;margin-bottom:8px}
+.algo-title{font-family:var(--head);font-size:28px;font-weight:700;color:#fff;margin-bottom:8px}
+.algo-title span{color:var(--cyan)}
+.algo-meta{font-size:12px;color:var(--text2);max-width:700px;line-height:1.7}
+.algo-meta strong{color:var(--orange)}
+
+/* INFO PANEL — about / adv / disadv */
+.info-panel{margin-top:22px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.info-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2)}
+.itab{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:10px 18px;border:none;background:transparent;color:var(--text3);cursor:pointer;transition:all .15s;border-bottom:2px solid transparent}
+.itab:hover{color:var(--text2);background:rgba(0,200,255,0.04)}
+.itab.active{color:var(--cyan);border-bottom-color:var(--cyan);background:rgba(0,200,255,0.06)}
+.ipane{display:none;padding:18px 20px;animation:pageIn .18s ease}
+.ipane.active{display:block}
+.ipane-about{font-size:13px;color:var(--text2);line-height:1.9;max-width:800px}
+.ipane-about p{margin-bottom:10px}
+.ipane-about strong{color:var(--cyan)}
+.ipane-about em{color:var(--orange);font-style:normal}
+.adv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.adv-grid{grid-template-columns:1fr}}
+.adv-col{border-radius:10px;padding:16px}
+.adv-col.adv{background:rgba(0,255,157,0.04);border:1px solid rgba(0,255,157,0.18)}
+.adv-col.dis{background:rgba(255,68,68,0.04);border:1px solid rgba(255,68,68,0.18)}
+.adv-col h4{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}
+.adv-col.adv h4{color:var(--green)}
+.adv-col.dis h4{color:var(--red)}
+.adv-item{display:flex;gap:10px;margin-bottom:9px;font-size:12px;line-height:1.7;color:var(--text2)}
+.adv-dot{flex-shrink:0;margin-top:5px;width:6px;height:6px;border-radius:50%}
+.adv-col.adv .adv-dot{background:var(--green)}
+.adv-col.dis .adv-dot{background:var(--red)}
+.adv-item strong{color:var(--text);font-weight:500}
+.meta-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.mchip{font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:99px;border:1px solid var(--border2);color:var(--text2);letter-spacing:.5px}
+
+/* STEP NAVIGATOR */
+.step-nav{display:flex;align-items:center;gap:0;margin:24px 0;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;flex-wrap:wrap}
+.step-btn{font-family:var(--mono);font-size:11px;padding:10px 16px;border:none;background:transparent;color:var(--text2);cursor:pointer;letter-spacing:.5px;transition:all .15s;border-right:1px solid var(--border);white-space:nowrap}
+.step-btn:last-child{border-right:none}
+.step-btn:hover{background:rgba(0,200,255,0.06);color:var(--text)}
+.step-btn.active{background:rgba(0,200,255,0.1);color:var(--cyan)}
+
+/* INPUT PANEL */
+.input-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.input-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.fg label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);display:block;margin-bottom:5px}
+.fg input,.fg select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 11px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;transition:border-color .15s}
+.fg input:focus,.fg select:focus{border-color:var(--cyan)}
+.fg select option{background:var(--bg)}
+
+/* BIT DISPLAY */
+.bit-stage{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.bit-stage-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.bit-stage-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.bits-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;align-items:center}
+.bit{width:22px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;border-radius:4px;transition:all .4s;border:1px solid transparent;position:relative;cursor:default}
+.bit-0{background:rgba(48,64,96,0.4);color:var(--text3);border-color:rgba(48,64,96,0.6)}
+.bit-1{background:rgba(0,200,255,0.15);color:var(--cyan);border-color:rgba(0,200,255,0.4)}
+.bit.changed{background:rgba(255,140,0,0.2);color:var(--orange);border-color:rgba(255,140,0,0.5);animation:flash .5s ease}
+.bit.highlight{background:rgba(0,255,157,0.15);color:var(--green);border-color:rgba(0,255,157,0.4)}
+
+/* RESULT BANNER */
+.result-banner{display:flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:14px 18px;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.rb-block{display:flex;flex-direction:column;align-items:center;min-width:80px}
+.rb-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;font-family:var(--mono)}
+.rb-value{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:2px;word-break:break-all;text-align:center}
+.rb-sub{font-size:10px;color:var(--text3);margin-top:3px;font-family:var(--mono)}
+.rb-arrow{font-size:22px;color:var(--text3);align-self:center;padding:0 4px}
+.rb-input .rb-value{color:var(--cyan)}
+.rb-output .rb-value{color:var(--green)}
+.rb-output.decrypt .rb-value{color:var(--orange)}
+
+@keyframes flash{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.bit-sep{width:2px;height:28px;background:var(--border2);border-radius:1px;margin:0 2px}
+.byte-label{font-size:9px;color:var(--text3);text-align:center;margin-bottom:4px;letter-spacing:.5px}
+.byte-group{display:flex;flex-direction:column;align-items:center;margin-right:6px}
+
+/* HEX / CHAR ROW */
+.repr-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.repr-cell{text-align:center;font-size:11px}
+.repr-char{color:var(--green);font-size:13px;font-weight:600}
+.repr-hex{color:var(--orange);font-size:11px}
+.repr-dec{color:var(--text2);font-size:10px}
+
+/* EXPLANATION BOX */
+.explain-box{background:rgba(0,200,255,0.04);border:1px solid var(--border2);border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.8}
+.explain-box .eq{color:var(--yellow);font-weight:600}
+.explain-box .val{color:var(--green)}
+.explain-box .op{color:var(--orange)}
+.explain-box .note{color:var(--text2);font-size:12px}
+
+/* OPERATION ANIMATION */
+.op-flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;padding:10px 14px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)}
+.op-box{padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;font-family:var(--mono)}
+.op-box.plain{background:rgba(0,200,255,0.1);color:var(--cyan);border:1px solid rgba(0,200,255,0.3)}
+.op-box.key{background:rgba(255,140,0,0.1);color:var(--orange);border:1px solid rgba(255,140,0,0.3)}
+.op-box.result{background:rgba(0,255,157,0.1);color:var(--green);border:1px solid rgba(0,255,157,0.3)}
+.op-box.op-sym{background:rgba(255,77,184,0.1);color:var(--pink);border:1px solid rgba(255,77,184,0.3)}
+.op-arrow{color:var(--text3);font-size:16px}
+
+/* MATRIX VIZ */
+.matrix-viz{display:inline-grid;gap:3px;margin:8px 0}
+.mv-cell{width:42px;height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;font-size:11px;border:1px solid transparent}
+.mv-cell.plain{background:rgba(0,200,255,0.08);border-color:rgba(0,200,255,0.2);color:var(--cyan)}
+.mv-cell.key{background:rgba(255,140,0,0.1);border-color:rgba(255,140,0,0.25);color:var(--orange)}
+.mv-cell.result{background:rgba(0,255,157,0.1);border-color:rgba(0,255,157,0.25);color:var(--green)}
+.mv-cell.highlight{background:rgba(255,77,184,0.15);border-color:rgba(255,77,184,0.4);color:var(--pink);animation:flash .5s}
+.mv-char{font-size:13px;font-weight:600}
+.mv-num{font-size:9px;color:var(--text3)}
+
+/* TABLE */
+.bit-table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+.bit-table th{padding:6px 10px;text-align:left;color:var(--text3);font-size:10px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.bit-table td{padding:7px 10px;border-bottom:1px solid rgba(0,200,255,0.06);vertical-align:middle}
+.bit-table tr:hover td{background:rgba(0,200,255,0.03)}
+.td-char{color:var(--cyan);font-size:13px;font-weight:600}
+.td-bin{color:var(--text);letter-spacing:2px;font-size:11px}
+.td-hex{color:var(--orange)}
+.td-dec{color:var(--text2)}
+.td-res{color:var(--green);font-weight:600}
+.td-op{color:var(--pink)}
+
+/* PLAYBACK */
+.playback{display:flex;align-items:center;gap:10px;margin:16px 0}
+.pb-btn{font-family:var(--mono);font-size:11px;padding:7px 14px;border-radius:7px;border:1px solid var(--border2);background:transparent;color:var(--cyan);cursor:pointer;transition:all .15s}
+.pb-btn:hover{background:rgba(0,200,255,0.1)}
+.pb-btn.go{background:rgba(0,200,255,0.12)}
+.pb-label{font-size:11px;color:var(--text2)}
+.pb-progress{flex:1;height:3px;background:var(--border);border-radius:99px;overflow:hidden}
+.pb-fill{height:100%;background:var(--cyan);border-radius:99px;transition:width .3s}
+
+/* SECTION DIVIDER */
+.sec-div{display:flex;align-items:center;gap:12px;margin:28px 0 16px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3)}
+.sec-div::before,.sec-div::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* CARDS GRID */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0}
+.info-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
+.info-card .ic-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+.info-card .ic-val{font-size:16px;font-weight:600;color:var(--cyan);font-family:var(--mono)}
+.info-card .ic-sub{font-size:11px;color:var(--text2);margin-top:3px}
+.info-card.g .ic-val{color:var(--green)}
+.info-card.o .ic-val{color:var(--orange)}
+.info-card.p .ic-val{color:var(--pink)}
+.info-card.y .ic-val{color:var(--yellow)}
+
+/* XOR TABLE */
+.xor-demo{display:flex;flex-direction:column;gap:4px;font-size:13px;font-family:var(--mono);padding:14px;background:var(--bg2);border-radius:8px;border:1px solid var(--border)}
+.xd-row{display:flex;align-items:center;gap:10px}
+.xd-label{width:28px;color:var(--text3);font-size:11px;text-align:right}
+.xd-bits{display:flex;gap:3px}
+.xd-bit{width:20px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:3px;font-size:12px}
+.xd-bit.b0{color:var(--text3)}
+.xd-bit.b1{color:var(--cyan);background:rgba(0,200,255,0.1)}
+.xd-bit.bx{color:var(--green);background:rgba(0,255,157,0.1)}
+.xd-sep{height:1px;background:var(--border);margin:4px 0}
+.xd-op{color:var(--pink);font-size:13px;width:28px;text-align:right}
+
+/* FEISTEL */
+.feistel-round{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;transition:border-color .3s}
+.feistel-round.active-round{border-color:var(--cyan)}
+.fr-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.fr-title{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--cyan)}
+.fr-status{font-size:10px;color:var(--text3)}
+.fr-body{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;font-size:12px}
+.fr-half{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px}
+.fr-half .fh-title{font-size:10px;color:var(--text3);margin-bottom:4px}
+.fr-half .fh-bits{color:var(--cyan);word-break:break-all;letter-spacing:1px;font-size:11px;line-height:1.6}
+.fr-arrow{color:var(--text3);font-size:20px;text-align:center}
+.fr-arrow span{display:block;font-size:10px;color:var(--orange)}
+
+/* AES STATE MATRIX */
+.aes-state{display:inline-grid;grid-template-columns:repeat(4,56px);gap:4px;margin:8px 0}
+.aes-cell{height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:7px;font-family:var(--mono);font-size:11px;border:1px solid transparent;transition:all .4s;cursor:default}
+.aes-cell.initial{background:rgba(0,200,255,0.08);border-color:rgba(0,200,255,0.2)}
+.aes-cell.after-sub{background:rgba(255,140,0,0.08);border-color:rgba(255,140,0,0.2)}
+.aes-cell.after-shift{background:rgba(0,255,157,0.08);border-color:rgba(0,255,157,0.2)}
+.aes-cell.after-mix{background:rgba(255,77,184,0.08);border-color:rgba(255,77,184,0.2)}
+.aes-cell.after-key{background:rgba(255,224,102,0.08);border-color:rgba(255,224,102,0.2)}
+.aes-cell .ac-hex{font-size:13px;font-weight:600;color:inherit}
+.aes-cell .ac-char{font-size:10px;color:var(--text3)}
+.aes-cell:hover{transform:scale(1.08);z-index:2}
+.aes-row-arrow{display:flex;align-items:center;justify-content:flex-end;gap:4px;font-size:10px;color:var(--text3);margin:3px 0;height:16px}
+
+/* DH FLOW */
+.dh-parties{display:grid;grid-template-columns:1fr 120px 1fr;gap:12px;margin:16px 0;align-items:start}
+.dh-party{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px}
+.dh-party .dp-name{font-family:var(--head);font-size:16px;font-weight:600;margin-bottom:12px}
+.dh-party.alice .dp-name{color:var(--cyan)}
+.dh-party.bob .dp-name{color:var(--green)}
+.dh-line{display:flex;justify-content:space-between;font-size:12px;margin:4px 0;padding:4px 8px;border-radius:5px}
+.dh-line.private{background:rgba(255,77,184,0.07);border:1px solid rgba(255,77,184,0.15)}
+.dh-line.pub{background:rgba(0,200,255,0.06);border:1px solid rgba(0,200,255,0.12)}
+.dh-line.shared{background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.2)}
+.dh-line .dl{color:var(--text3);font-size:11px}
+.dh-line .dv{font-weight:600}
+.dh-line.private .dv{color:var(--pink)}
+.dh-line.pub .dv{color:var(--cyan)}
+.dh-line.shared .dv{color:var(--green);font-size:15px}
+.dh-channel{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding-top:40px}
+.dh-send{font-size:11px;color:var(--text2);text-align:center;padding:6px 8px;border:1px solid var(--border);border-radius:6px}
+.dh-send .ds-val{color:var(--orange);font-weight:600}
+.dh-arrow2{color:var(--text3);font-size:22px}
+
+/* ECC CANVAS */
+.ecc-wrap{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:14px}
+#ecc-canvas{display:block;margin:0 auto;max-width:100%}
+
+/* RSA BIG STEPS */
+.rsa-step{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:0 10px 10px 0;padding:16px;margin-bottom:10px;transition:border-left-color .3s}
+.rsa-step.done{border-left-color:var(--green)}
+.rsa-step.current{border-left-color:var(--cyan)}
+.rs-num{font-size:10px;letter-spacing:1px;color:var(--text3);margin-bottom:4px}
+.rs-expr{font-size:16px;font-weight:600;color:var(--yellow);margin-bottom:4px;font-family:var(--mono)}
+.rs-eval{font-size:13px;color:var(--text2)}
+.rs-result{font-size:18px;color:var(--cyan);font-weight:600;margin-top:6px}
+
+/* TOOLTIP */
+.bit[title]{cursor:help}
+
+/* warning */
+.warn-box{background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:#ff8888;margin:10px 0}
+
+/* ENCRYPT / DECRYPT TOGGLE */
+.mode-toggle{display:flex;align-items:center;gap:0;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;width:fit-content}
+.mode-btn{font-family:var(--mono);font-size:12px;padding:9px 22px;border:none;background:transparent;color:var(--text2);cursor:pointer;letter-spacing:1px;transition:all .15s}
+.mode-btn.active{background:rgba(0,200,255,0.12);color:var(--cyan)}
+.dec-stage{background:rgba(0,255,157,0.03);border:1px solid rgba(0,255,157,0.2);border-radius:12px;padding:20px;margin-bottom:16px}
+.dec-stage .bit-stage-title{color:var(--green)}
+.dec-stage .bit-stage-title::after{background:rgba(0,255,157,0.2)}
+
+@media(max-width:640px){
+  .dh-parties{grid-template-columns:1fr}
+  .aes-state{grid-template-columns:repeat(4,44px)}
+  .aes-cell{height:44px}
+  .bits-row{gap:3px}
+  .bit{width:18px;height:24px;font-size:10px}
+}
+</style>
+</head>
+<body>
+<script>
+// Early-loaded info panel data and renderer (must be before page HTML)
+const INFO={
+  caesar:{
+    chips:['Shift Cipher','Mono-alphabetic','Julius Caesar ~58 BC','Key space: 25','Symmetric'],
+    about:`<p><strong>Caesar Cipher</strong> is one of the oldest and simplest encryption techniques, named after <em>Julius Caesar</em> who reportedly used it with a shift of 3 to protect military messages around 58 BC.</p>
+<p>Every letter in the plaintext is replaced by a letter a fixed number of positions down the alphabet. With shift 3: A→D, B→E, Z→C. It wraps around using <strong>modular arithmetic mod 26</strong>.</p>
+<p>Mathematically: <em>E(x) = (x + k) mod 26</em> and <em>D(x) = (x − k + 26) mod 26</em> where x is the letter's position (0–25) and k is the shift key.</p>
+<p>At the <strong>bit level</strong>, since letters are stored as ASCII (65–90 for A–Z), shifting by k changes the lower bits of the ASCII byte — even a shift of 1 flips multiple bits in the binary representation.</p>`,
+    adv:['<strong>Extremely simple</strong> to understand, implement and teach — perfect for learning the basics of encryption.','<strong>Very fast</strong> to encrypt and decrypt, requiring only a single addition/subtraction per character.','<strong>No complex key management</strong> — the shift value (1–25) is the entire key.','<strong>Historical significance</strong> — foundational for understanding all substitution ciphers.'],
+    dis:['<strong>Only 25 possible keys</strong> — a brute-force attack can try all keys by hand in minutes.','<strong>Vulnerable to frequency analysis</strong> — letter frequency distribution is preserved, exposing E, T, A as the most common.','<strong>No diffusion</strong> — each letter is encrypted independently, patterns in plaintext survive.','<strong>Same letter always maps to same output</strong> — identical plaintext letters always produce identical ciphertext letters.','<strong>No modern security value</strong> — broken instantly by any computer or even a determined human.']
+  },
+  mult:{
+    chips:['Multiplicative Cipher','Mono-alphabetic','Modular Arithmetic','12 valid keys','Symmetric'],
+    about:`<p>The <strong>Multiplicative Cipher</strong> replaces each letter by multiplying its alphabet position (0–25) by a fixed key k, then taking the result mod 26.</p>
+<p>Formula: <em>E(x) = (x × k) mod 26</em>. Decryption: <em>D(y) = (y × k⁻¹) mod 26</em> where k⁻¹ is the <strong>modular multiplicative inverse</strong> of k mod 26.</p>
+<p>The key constraint is critical: k must be <em>coprime with 26</em> (gcd(k,26)=1). This ensures a unique inverse exists so every output letter maps to exactly one input. Valid keys: 1,3,5,7,9,11,15,17,19,21,23,25 — only <strong>12 valid keys</strong> total.</p>
+<p>At the <strong>bit level</strong>, multiplication scatters bits more non-uniformly than a simple shift — adding 7 to position 0 vs multiplying by 7 produces very different binary patterns in the lower bits of the ASCII byte.</p>`,
+    adv:['<strong>Non-linear letter mapping</strong> — the output alphabet is a scrambled permutation, not a simple rotation.','<strong>Introduces multiplication</strong> as a cryptographic operation, a precursor to more complex ciphers.','<strong>Combinable with additive cipher</strong> to form the Affine Cipher (ax + b mod 26), doubling the key space.','<strong>Easy to implement</strong> with just modular arithmetic.'],
+    dis:['<strong>Only 12 valid keys</strong> — even smaller effective keyspace than Caesar in practice.','<strong>Still mono-alphabetic</strong> — frequency analysis easily breaks it since letter frequencies are preserved.','<strong>Letters A (position 0)</strong> always encrypts to A regardless of key, leaking information.','<strong>No diffusion</strong> — each character is encrypted entirely independently of others.','<strong>Completely insecure</strong> by modern standards; considered a toy cipher.']
+  },
+  vigenere:{
+    chips:['Vigenère Cipher','Poly-alphabetic','Bellaso 1553 / Vigenère 1586','Keyword-based','Once called le chiffre indechiffrable'],
+    about:`<p>The <strong>Vigenère Cipher</strong> was described by Giovan Battista Bellaso in 1553 and later misattributed to Blaise de Vigenère. It was considered unbreakable for 300 years, earning the nickname <em>"le chiffre indéchiffrable."</em></p>
+<p>It extends the Caesar cipher by using a <strong>repeating keyword</strong> as a series of different shift keys. Each letter of the keyword provides a different shift for the corresponding plaintext letter. With keyword "LEMON": L=11, E=4, M=12, O=14, N=13 — these shifts repeat across the message.</p>
+<p>Formula: <em>E(i) = (P(i) + K(i mod len)) mod 26</em> where P is the plaintext position and K is the keyword position.</p>
+<p>At the <strong>bit level</strong>, each plaintext byte gets a different transformation — the same letter A in position 1 and position 6 will produce completely different output bytes, defeating simple per-byte frequency analysis.</p>`,
+    adv:['<strong>Defeats simple frequency analysis</strong> — the same plaintext letter maps to different ciphertext letters at different positions.','<strong>Much larger effective key space</strong> than mono-alphabetic ciphers — key length can be arbitrary.','<strong>Easy to remember</strong> keys — any word or phrase works as a key.','<strong>Polyalphabetic nature</strong> was a major conceptual advance in cryptography history.','<strong>One-time pad variant</strong> — with a truly random key equal in length to the message, it becomes theoretically unbreakable (Vernam cipher).'],
+    dis:['<strong>Vulnerable to Kasiski examination</strong> — repeated key creates repeated ciphertext patterns detectable by spacing analysis.','<strong>Index of Coincidence</strong> technique (Friedman, 1920s) can determine key length, then reduces each position to a Caesar cipher.','<strong>Keyword repetition is the fatal flaw</strong> — if key length is shorter than message, patterns inevitably emerge.','<strong>Not semantically secure</strong> — identical plaintexts encrypted with the same key produce identical ciphertexts.','<strong>Completely broken</strong> by modern computers in milliseconds using statistical analysis.']
+  },
+  playfair:{
+    chips:['Playfair Cipher','Digraph Substitution','Charles Wheatstone 1854','5x5 Key Matrix','Used in WWI and WWII'],
+    about:`<p>The <strong>Playfair Cipher</strong> was invented by Charles Wheatstone in 1854 but popularized by Lord Playfair. It was used by British and Australian military in both World Wars.</p>
+<p>It operates on <em>pairs of letters (digraphs)</em>. A 5×5 matrix is built from a keyword (I and J share one cell). Pairs are encrypted by three rules: <strong>(1) Same row</strong> → shift right, <strong>(2) Same column</strong> → shift down, <strong>(3) Rectangle</strong> → swap corners to opposite corners.</p>
+<p>Preparation rules: if a pair has repeated letters, insert X between them (HELLO → HE LX LO). Odd-length message gets X appended. J is treated as I.</p>
+<p>At the <strong>bit level</strong>, two input ASCII bytes together determine two output bytes — each output byte depends on both inputs. This is the first cipher where single characters cannot be analyzed independently.</p>`,
+    adv:['<strong>Digraph substitution</strong> defeats single-letter frequency analysis completely — you need digraph frequency tables.','<strong>625 possible digraphs</strong> vs 26 single characters — much harder to attack manually.','<strong>Simple enough</strong> to use in the field without equipment — soldiers could encrypt messages by hand.','<strong>Context-dependent</strong> — the same letter encrypts differently based on its pair partner.','<strong>First cipher with inter-character dependency</strong> — a conceptual precursor to block ciphers.'],
+    dis:['<strong>Only 25 distinct letters</strong> — I and J are merged, cannot encrypt digits or punctuation.','<strong>Digraph frequency analysis</strong> can still break it — TH, HE, IN are the most common English digraphs and remain detectable.','<strong>Inserting X for double letters</strong> subtly reveals plaintext structure to an attacker.','<strong>Key space</strong> is large (25! arrangements) but weak keys based on common words dominate real usage.','<strong>Known-plaintext attack</strong> is practical — a few known message-ciphertext pairs allow full key recovery.']
+  },
+  hill:{
+    chips:['Hill Cipher','Linear Algebra / Matrix','Lester Hill 1929','First polygraphic cipher','Known-plaintext vulnerable'],
+    about:`<p>The <strong>Hill Cipher</strong>, invented by Lester S. Hill in 1929, was the <em>first practical polygraphic cipher</em> — it encrypts multiple letters simultaneously using <strong>linear algebra and matrix multiplication</strong>.</p>
+<p>Letters convert to numbers (A=0 … Z=25), grouped into vectors of size n (typically 2 or 3). A key matrix K (n×n) multiplies the vector mod 26: <em>C = K × P (mod 26)</em>. Decryption: <em>P = K⁻¹ × C (mod 26)</em>.</p>
+<p>The key matrix must be <em>invertible mod 26</em>: its determinant must be non-zero and gcd(det, 26) = 1. For 2×2 key [a,b;c,d]: det = ad−bc.</p>
+<p>At the <strong>bit level</strong>, two input bytes are mathematically combined through matrix multiplication to produce two output bytes. A single bit change in one input character will change multiple output bytes — introducing diffusion for the first time in classical ciphers.</p>`,
+    adv:['<strong>Multiple letters encrypted together</strong> — provides diffusion, the first classical cipher to do so.','<strong>Linear algebra foundation</strong> — directly related to the mathematical basis of modern block cipher design.','<strong>Digraph frequency analysis fails</strong> — for 2×2 and trigraph analysis fails for 3×3 matrices.','<strong>Scalable security</strong> — larger matrices (3×3, 4×4) provide stronger mixing and make cryptanalysis harder.','<strong>Bridges classical and modern</strong> — the concept of treating blocks of data mathematically is central to AES.'],
+    dis:['<strong>Completely broken by known-plaintext attack</strong> — knowing just n plaintext-ciphertext pairs lets you solve for the key matrix directly.','<strong>Linear cipher</strong> — all operations are linear (mod 26 arithmetic), making the system algebraically transparent.','<strong>Key matrix management is error-prone</strong> — not all matrices are valid; computing modular inverse is tedious manually.','<strong>No non-linearity</strong> — modern ciphers use S-boxes specifically because linear systems are algebraically attackable.','<strong>No authentication or integrity</strong> — ciphertext can be modified without detection.']
+  },
+  des:{
+    chips:['Data Encryption Standard','64-bit block cipher','56-bit effective key','16-round Feistel network','FIPS standard 1977 to 2002'],
+    about:`<p><strong>DES (Data Encryption Standard)</strong> was adopted as a US federal standard in 1977 after being developed by IBM with NSA involvement. It dominated symmetric encryption for over 20 years before being officially retired in 2002.</p>
+<p>DES operates on <em>64-bit blocks</em> with a <em>64-bit key</em> (56 bits effective; 8 bits are parity checks). It uses a <strong>Feistel network</strong> with 16 rounds. Each round: split 64-bit block into L and R halves (32 bits each), compute new_R = old_L XOR f(R, subkey), then swap so new_L = old_R.</p>
+<p>The <strong>f-function</strong>: Expansion permutation (32→48 bits) → XOR with 48-bit round subkey → 8 S-boxes (each 6 bits → 4 bits, providing critical non-linearity) → P-box permutation (32 bits).</p>
+<p>At the <strong>bit level</strong>, after the Initial Permutation (IP) reorders all 64 input bits, each round feeds R through S-boxes that completely rearrange the bit pattern. A single bit change in input will, after ~2 rounds, affect approximately half of all 64 output bits (avalanche effect).</p>`,
+    adv:['<strong>Elegant Feistel structure</strong> — decryption uses identical hardware/algorithm as encryption with reversed subkey order.','<strong>S-boxes provide essential non-linearity</strong> — critical for resisting differential and linear cryptanalysis.','<strong>Extremely well studied</strong> — 45+ years of cryptanalysis found no fundamental mathematical weakness beyond key size.','<strong>Hardware-efficient design</strong> — optimized for 1970s hardware, very fast in dedicated silicon.','<strong>Foundation of 3DES</strong> — triple-DES (EDE: Encrypt-Decrypt-Encrypt with 3 keys) extended its useful life to ~2023.'],
+    dis:['<strong>56-bit key is fatally short</strong> — EFF Deep Crack broke it in 22 hours in 1998; modern GPUs do it in hours for under $100.','<strong>64-bit block size too small</strong> — birthday attacks become feasible around 2^32 blocks (4GB data); exploited in SWEET32 attack (2016).','<strong>Officially deprecated</strong> — NIST withdrew DES in 2005; 3DES was deprecated in 2023 for all new systems.','<strong>NSA involvement raised suspicions</strong> — S-box design was modified by NSA before publication (later shown to strengthen, not weaken, against differential cryptanalysis).','<strong>Slow in software</strong> — bit-level permutations are expensive on general-purpose CPUs compared to byte-oriented operations.']
+  },
+  aes:{
+    chips:['Advanced Encryption Standard','128-bit block','128 / 192 / 256-bit keys','10 / 12 / 14 rounds','FIPS 197 since 2001','Rijndael algorithm'],
+    about:`<p><strong>AES (Advanced Encryption Standard)</strong>, based on the <em>Rijndael</em> algorithm by Joan Daemen and Vincent Rijmen (Belgium), was selected by NIST in 2001 after a 5-year open competition with 15 candidate algorithms. It replaced DES as the global encryption standard.</p>
+<p>AES treats the plaintext as a <em>4×4 byte state matrix</em> (128 bits). Each of the 10 rounds (for AES-128) applies four transformations: <strong>SubBytes</strong> — non-linear byte substitution via S-box (computed from multiplicative inverse in GF(2⁸)); <strong>ShiftRows</strong> — cyclic left shifts of rows 0,1,2,3 by 0,1,2,3 positions; <strong>MixColumns</strong> — matrix multiplication of each column in GF(2⁸); <strong>AddRoundKey</strong> — XOR with the round subkey.</p>
+<p>At the <strong>bit level</strong>, SubBytes substitutes each of 16 bytes using a 256-entry lookup table. MixColumns mixes every 4 bytes in a column using Galois Field multiplication — one changed input bit cascades into all 128 output bits after just 2 rounds (strict avalanche criterion).</p>`,
+    adv:['<strong>No known practical attacks</strong> — best attack on full AES-128 requires 2^126.1 operations, astronomically infeasible.','<strong>Variable key lengths</strong> — 128, 192, or 256 bits let you balance performance vs security requirements.','<strong>Blazing fast in hardware</strong> — modern Intel/AMD CPUs include AES-NI instructions; achieves multiple GB/s per core.','<strong>Strong avalanche effect</strong> — 1 input bit change → ~50% output bits change after just 2 rounds.','<strong>Fully public design</strong> — no NSA involvement, transparent specification, globally peer-reviewed.','<strong>Universal adoption</strong> — used in HTTPS/TLS, WPA2/WPA3 WiFi, BitLocker, FileVault, Signal, WhatsApp, VPNs.'],
+    dis:['<strong>Complex correct implementation</strong> — software AES without hardware instructions requires careful timing-attack mitigations.','<strong>Side-channel vulnerable</strong> — cache-timing attacks (e.g., Bernstein 2005) can recover keys from poorly-implemented software.','<strong>Key management is external</strong> — AES is secure but key generation, storage, and exchange require separate protocols.','<strong>Not quantum-resistant at 128-bit</strong> — Grover algorithm reduces AES-128 to ~64-bit security against quantum computers (AES-256 remains safe with ~128-bit quantum security).','<strong>ECB mode is insecure</strong> — AES in Electronic Codebook mode leaks patterns (the ECB penguin attack); always use CBC, GCM or CTR mode.']
+  },
+  rsa:{
+    chips:['Rivest-Shamir-Adleman 1977','Asymmetric / Public-key','Integer Factorization Problem','2048+ bit keys for security','Basis of PKI and HTTPS'],
+    about:`<p><strong>RSA</strong>, invented by Ron Rivest, Adi Shamir, and Leonard Adleman at MIT in 1977, was the <em>first practical public-key cryptosystem</em>. It solved the fundamental key distribution problem that plagued all symmetric ciphers: how can two parties communicate securely without ever meeting?</p>
+<p>Key generation: choose two large primes p and q. Compute <em>n = p×q</em> (public modulus) and <em>φ(n) = (p−1)(q−1)</em> (Euler's totient, kept secret). Choose public exponent e where gcd(e, φ(n))=1. Compute private key <em>d = e⁻¹ mod φ(n)</em>.</p>
+<p>Encrypt: <em>C = M^e mod n</em>. Decrypt: <em>M = C^d mod n</em>. This works because M^(ed) ≡ M (mod n) by Euler's theorem. Security rests on the <strong>Integer Factorization Problem</strong>: given n, finding p and q is computationally infeasible for n &gt; 2048 bits.</p>
+<p>At the <strong>bit level</strong>, modular exponentiation completely transforms all input bits — a 1-bit difference in M produces a wildly different C with no visible bitwise relationship, and there's no shortcut to reverse it without knowing d.</p>`,
+    adv:['<strong>Solves key distribution completely</strong> — public key can be published openly; private key never needs to leave the owner.','<strong>Enables digital signatures</strong> — sign with private key, anyone verifies with public key; provides authentication and non-repudiation.','<strong>Foundation of PKI</strong> — SSL/TLS certificates, HTTPS, email encryption (PGP/GPG), code signing all rely on RSA.','<strong>47 years of scrutiny</strong> — no mathematical shortcut to breaking RSA has been found for properly generated keys.','<strong>Flexible key sizes</strong> — 1024 (legacy), 2048 (standard), 4096 (high security) bit options.'],
+    dis:['<strong>Very slow encryption</strong> — RSA is ~1000x slower than AES; never used to encrypt bulk data, only to encrypt symmetric keys.','<strong>Large keys needed</strong> — 2048-bit RSA gives ~112-bit security; ECC achieves equivalent security with only 224-bit keys.','<strong>Quantum computers will break it</strong> — Shor\'s algorithm solves integer factorization in polynomial time on a quantum computer.','<strong>Padding is critical</strong> — textbook RSA (no padding) is deterministic and vulnerable to many attacks; must use OAEP or PSS padding.','<strong>Weak prime generation breaks everything</strong> — if p and q share factors with other deployed keys (shown to happen in 2012 mass key survey), the entire system collapses.']
+  },
+  dh:{
+    chips:['Diffie-Hellman 1976','Key Exchange Protocol','Discrete Logarithm Problem','First public-key protocol','Basis of TLS / SSH / IPSec'],
+    about:`<p><strong>Diffie-Hellman Key Exchange</strong> was published by Whitfield Diffie and Martin Hellman in 1976 — the <em>first public-key cryptographic protocol ever published</em>, a landmark that fundamentally changed cryptography by demonstrating that secure key agreement over a public channel is mathematically possible.</p>
+<p>Setup: agree on public prime p and generator g (a primitive root mod p). Alice picks private integer a, computes <em>A = g^a mod p</em> and sends A to Bob. Bob picks private b, computes <em>B = g^b mod p</em> and sends B to Alice.</p>
+<p>Alice computes shared secret <em>S = B^a mod p</em>. Bob computes <em>S = A^b mod p</em>. They get the same value because <em>(g^b)^a = g^(ab) = (g^a)^b mod p</em>.</p>
+<p>Security: Eve sees p, g, A=g^a, B=g^b. To find the shared secret she must compute a from A=g^a mod p — this is the <strong>Discrete Logarithm Problem</strong>, computationally infeasible for large p.</p>`,
+    adv:['<strong>Revolutionary concept</strong> — first proof that secure key agreement over a fully public, observed channel is possible.','<strong>Perfect Forward Secrecy</strong> — ephemeral DH (new a,b per session) ensures past sessions cannot be decrypted even if long-term keys are later compromised.','<strong>Widely deployed</strong> — TLS 1.3 uses ECDHE exclusively; SSH, IPSec, Signal all use DH variants.','<strong>Authentication-independent</strong> — can be combined with any authentication mechanism (certificates, pre-shared keys, etc.).','<strong>Simple and provably secure</strong> under standard assumptions.'],
+    dis:['<strong>Vulnerable to man-in-the-middle attack without authentication</strong> — Eve can intercept and impersonate both Alice and Bob simultaneously.','<strong>Logjam attack (2015)</strong> — 512-bit export DH and even 1024-bit DH may be within nation-state precomputation capabilities.','<strong>Parameter selection is critical</strong> — non-safe primes, small subgroup attacks, and other parameter weaknesses can completely break security.','<strong>Computationally expensive</strong> — large modular exponentiations; ECDH offers same security at much lower computational cost.','<strong>Quantum vulnerable</strong> — Shor\'s algorithm solves the discrete logarithm problem efficiently on a quantum computer.']
+  },
+  elgamal:{
+    chips:['ElGamal Cryptosystem 1985','Taher ElGamal','Based on Diffie-Hellman','Probabilistic encryption','Ciphertext 2x plaintext size'],
+    about:`<p>The <strong>ElGamal Cryptosystem</strong> was published by Taher ElGamal in 1985. It extends Diffie-Hellman into a full <em>public-key encryption and signature scheme</em>. The signature variant directly inspired the Digital Signature Algorithm (DSA) standardized by NIST.</p>
+<p>Key generation: public prime p, generator g. Private key x. Public key <em>y = g^x mod p</em>. To encrypt message M using random session key k: compute <em>C1 = g^k mod p</em> and <em>C2 = M × y^k mod p</em>. Decrypt: <em>M = C2 × (C1^x)⁻¹ mod p</em>. This works because C1^x = g^(kx) = y^k, so C2/C1^x = M×y^k/y^k = M.</p>
+<p>The key insight is <em>randomized encryption</em> — k is chosen freshly and randomly for each message, so encrypting the same M twice produces different ciphertexts. This provides <strong>semantic security (IND-CPA)</strong>.</p>
+<p>At the <strong>bit level</strong>, C2 = M × y^k mod p completely masks M's bits with a randomly derived value y^k. Without knowing x (to compute y^k = C1^x), recovering M requires solving the DLP.</p>`,
+    adv:['<strong>Probabilistic / randomized encryption</strong> — encrypting the same message twice gives different ciphertexts, providing semantic security.','<strong>IND-CPA secure</strong> under the Decisional Diffie-Hellman assumption — has formal provable security guarantees.','<strong>Basis of DSA and ECDSA</strong> — the ElGamal signature scheme directly led to the widely-used digital signature standards.','<strong>Works over any group</strong> where DLP is hard — generalizes to elliptic curve groups (ECDSA uses the same principles).','<strong>Session key isolation</strong> — compromise of one session key k does not compromise the private key x or other sessions.'],
+    dis:['<strong>Ciphertext is twice the size of plaintext</strong> — sending (C1, C2) doubles bandwidth requirements compared to RSA.','<strong>k must never be reused</strong> — if k is reused for two different messages, the private key x can be algebraically recovered. (This famously broke Sony PlayStation 3 ECDSA in 2010.)','<strong>Requires strong randomness</strong> — predictable k values completely break security.','<strong>No standard padding scheme</strong> — needs careful implementation to avoid chosen-ciphertext oracle attacks.','<strong>Quantum vulnerable</strong> — Shor\'s algorithm solves the underlying discrete logarithm problem.']
+  },
+  ecc:{
+    chips:['Elliptic Curve Cryptography','Neal Koblitz and Victor Miller 1985','ECDLP hardness assumption','256-bit key = 3072-bit RSA security','Used in Bitcoin TLS1.3 Signal'],
+    about:`<p><strong>Elliptic Curve Cryptography (ECC)</strong> was independently proposed by Neal Koblitz and Victor Miller in 1985. It applies the mathematical structure of elliptic curves over finite fields to create cryptographic systems that achieve the <em>same security as RSA with dramatically smaller keys</em> — a 256-bit ECC key provides equivalent security to a 3072-bit RSA key.</p>
+<p>An elliptic curve over GF(p): <em>y² ≡ x³ + ax + b (mod p)</em>, where 4a³+27b² ≢ 0 (non-singular). The set of all points satisfying this equation, plus a "point at infinity" (identity element), forms an <strong>abelian group</strong> under the point addition operation.</p>
+<p>Point addition: draw a line through two points P and Q; it intersects the curve at a third point, which is reflected over the x-axis to give P+Q. Scalar multiplication kG means adding G to itself k times. Security comes from the <strong>ECDLP</strong>: given G and Q=kG, finding k is computationally infeasible.</p>
+<p>ECDH: Alice computes Pa = ka×G (public), Bob computes Pb = kb×G (public). Shared secret = ka×Pb = kb×Pa = ka×kb×G. At the <strong>bit level</strong>, each point addition mixes x and y coordinates through modular arithmetic, completely scrambling input bits.</p>`,
+    adv:['<strong>Much smaller keys</strong> — 256-bit ECC equals ~3072-bit RSA security; reduces key storage, bandwidth, and computation by 10x.','<strong>Faster operations</strong> — key generation and signing are significantly faster than RSA at equivalent security levels.','<strong>Perfect Forward Secrecy</strong> — ECDHE (ephemeral) provides fresh keys per session, protecting past communications.','<strong>Universal modern deployment</strong> — TLS 1.3 mandates ECDHE, Bitcoin uses secp256k1, Signal and WhatsApp use Curve25519/X25519.','<strong>Power-efficient</strong> — smaller computations make ECC ideal for IoT devices, smart cards, and mobile applications.'],
+    dis:['<strong>Complex and error-prone implementation</strong> — point arithmetic, curve parameter selection, and side-channel resistance are significantly harder to get right than RSA.','<strong>Curve choice is critical</strong> — some NIST curves have controversial parameters (Snowden documents raised suspicion of potential NSA influence, though no backdoor proven).','<strong>Quantum computers will break it</strong> — a variant of Shor\'s algorithm solves ECDLP; all current ECC will be broken by sufficiently powerful quantum computers.','<strong>Invalid curve / twist attacks</strong> — implementations that don\'t validate input points are vulnerable to powerful attacks that directly reveal the private key.','<strong>Sony PS3 ECDSA break (2010)</strong> — reuse of random nonce k in signing allowed full private key recovery, showing how catastrophic implementation errors can be.']
+  }
+};
+function makeInfoPanel(key){
+  const d=INFO[key];if(!d)return'';
+  const chips=d.chips.map(c=>`<span class="mchip">${c}</span>`).join('');
+  const advItems=d.adv.map(a=>`<div class="adv-item"><div class="adv-dot"></div><div>${a}</div></div>`).join('');
+  const disItems=d.dis.map(a=>`<div class="adv-item"><div class="adv-dot"></div><div>${a}</div></div>`).join('');
+  return `<div class="info-panel">
+    <div class="info-tabs">
+      <button class="itab active" onclick="switchInfo(this,'iabout-${key}')">&#x2139; About</button>
+      <button class="itab" onclick="switchInfo(this,'iadv-${key}')">&#x2713; Adv vs Dis</button>
+    </div>
+    <div class="ipane active" id="iabout-${key}">
+      <div class="ipane-about">${d.about}<div class="meta-chips">${chips}</div></div>
+    </div>
+    <div class="ipane" id="iadv-${key}">
+      <div class="adv-grid">
+        <div class="adv-col adv"><h4>&#10003; Advantages</h4>${advItems}</div>
+        <div class="adv-col dis"><h4>&#10007; Disadvantages</h4>${disItems}</div>
+      </div>
+    </div>
+  </div>`;
+}
+function switchInfo(btn,paneId){
+  const panel=btn.closest('.info-panel');
+  panel.querySelectorAll('.itab').forEach(b=>b.classList.remove('active'));
+  panel.querySelectorAll('.ipane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  const el=document.getElementById(paneId);
+  if(el)el.classList.add('active');
+}
+</script>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="scanlines"></div>
+  <div class="hero-chip">&#x25CF; BIT-LEVEL INTERACTIVE VISUALIZER</div>
+  <h1>Every bit. Every step.<br><em>Nothing hidden.</em></h1>
+  <p>Type your input → watch it convert to binary → see every single bit change through each cipher operation in real time.</p>
+  <div class="hero-legend">
+    <div class="leg"><div class="leg-dot" style="background:rgba(0,200,255,0.6)"></div>Input / Plaintext bits</div>
+    <div class="leg"><div class="leg-dot" style="background:rgba(255,140,0,0.6)"></div>Key / Changed bits</div>
+    <div class="leg"><div class="leg-dot" style="background:rgba(0,255,157,0.6)"></div>Output / Result bits</div>
+    <div class="leg"><div class="leg-dot" style="background:rgba(255,77,184,0.6)"></div>Highlighted operation</div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPage('caesar')">Caesar</button>
+  <button class="nav-btn" onclick="showPage('mult')">Multiplicative</button>
+  <button class="nav-btn" onclick="showPage('vig')">Vigenère</button>
+  <button class="nav-btn" onclick="showPage('playfair')">Playfair</button>
+  <button class="nav-btn" onclick="showPage('hill')">Hill</button>
+  <span class="nav-sep">|</span>
+  <button class="nav-btn" onclick="showPage('des')">DES</button>
+  <button class="nav-btn" onclick="showPage('aes')">AES</button>
+  <span class="nav-sep">|</span>
+  <button class="nav-btn" onclick="showPage('rsa')">RSA</button>
+  <button class="nav-btn" onclick="showPage('dh')">Diffie-Hellman</button>
+  <button class="nav-btn" onclick="showPage('elgamal')">ElGamal</button>
+  <button class="nav-btn" onclick="showPage('ecc')">ECC</button>
+</nav>
+
+<!-- ======================================================= CAESAR ======================================================= -->
+<div class="page active" id="page-caesar">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 1 · Classical · Mono-alphabetic</div>
+    <div class="algo-title">Caesar <span>Cipher</span></div>
+    <div class="algo-meta">Each character is stored as its <strong>ASCII code</strong> (8 bits). The cipher subtracts 65 to get position (0–25), adds the shift key mod 26, then adds 65 back. Watch every bit flip as you type.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('caesar'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Plaintext / Ciphertext</label><input id="c-pt" value="HELLO" oninput="caesarViz()" maxlength="10"></div>
+      <div class="fg"><label>Shift Key (1–25)</label><input id="c-key" type="number" value="3" min="1" max="25" oninput="caesarViz()"></div>
+    </div>
+  </div>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="c-enc-btn" onclick="caesarMode('enc')">&#x1F512; Encrypt</button>
+    <button class="mode-btn" id="c-dec-btn" onclick="caesarMode('dec')">&#x1F513; Decrypt</button>
+  </div>
+
+  <div id="c-result-banner"></div><div class="sec-div">Input → Binary Representation</div>
+  <div class="bit-stage">
+    <div class="bit-stage-title">How your text is stored in memory (ASCII → 8-bit binary)</div>
+    <div id="c-input-bits"></div>
+    <div id="c-input-repr"></div>
+  </div>
+
+  <div class="sec-div">Character-by-character transformation</div>
+  <div id="c-table-wrap"></div>
+
+  <div class="sec-div">Output Bits</div>
+  <div class="bit-stage">
+    <div class="bit-stage-title">Encrypted text bits</div>
+    <div id="c-output-bits"></div>
+    <div id="c-output-repr"></div>
+  </div>
+  <div id="c-dec-section" style="display:none">
+    <div class="sec-div">Decryption — Reverse the shift</div>
+    <div class="dec-stage">
+      <div class="bit-stage-title">Decrypted bits (shift back by key)</div>
+      <div id="c-dec-bits"></div>
+      <div id="c-dec-repr"></div>
+    </div>
+    <div id="c-dec-table"></div>
+  </div>
+  <div class="cards-grid" id="c-cards"></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 1 · Classical · Mono-alphabetic</div>
+      <div class="aph-title">Caesar Cipher</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-caesar-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-caesar-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-caesar-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-caesar-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="kw">function</span> <span class="fn">caesarEncrypt</span>(plaintext, key):</span>
+<span class="pseudo-line">  ciphertext = <span class="vr">""</span></span>
+<span class="pseudo-line">  <span class="kw">for each</span> char <span class="kw">in</span> plaintext:</span>
+<span class="pseudo-line">    <span class="kw">if</span> char is letter:</span>
+<span class="pseudo-line">      pos = ASCII(char) - <span class="num">65</span>   <span class="cm">// 0–25</span></span>
+<span class="pseudo-line">      enc = (pos + key) mod <span class="num">26</span></span>
+<span class="pseudo-line">      ciphertext += ASCII(enc + <span class="num">65</span>)</span>
+<span class="pseudo-line">    <span class="kw">else</span>: ciphertext += char</span>
+<span class="pseudo-line">  <span class="kw">return</span> ciphertext</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">caesarDecrypt</span>(ciphertext, key):</span>
+<span class="pseudo-line">  <span class="kw">return</span> <span class="fn">caesarEncrypt</span>(ciphertext, <span class="num">26</span> - key)</div>
+    </div>
+    <div class="aptab-pane" id="ap-caesar-formula">
+      <div class="formula-box">
+<span class="fl">Encrypt:</span> <span class="fv">C = (P + k) mod 26</span><br>
+<span class="fl">Decrypt:</span> <span class="fv">P = (C − k + 26) mod 26</span><br>
+<span class="fc">P = plaintext pos (0–25), k = shift key</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-caesar-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Key space</td><td class="cx-bad">25 keys</td></tr><tr><td>Encrypt</td><td class="cx-ok">O(n)</td></tr><tr><td>Decrypt</td><td class="cx-ok">O(n)</td></tr><tr><td>Security</td><td class="cx-bad">Trivial</td></tr><tr><td>Attack</td><td class="cx-bad">Brute-force</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= MULTIPLICATIVE ======================================================= -->
+<div class="page" id="page-mult">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 1 · Classical · Mono-alphabetic</div>
+    <div class="algo-title">Multiplicative <span>Cipher</span></div>
+    <div class="algo-meta">Position = (ASCII − 65). Encrypted = (Position × Key) mod 26. Key must be <strong>coprime with 26</strong> (gcd = 1) so modular inverse exists for decryption. Watch the modular arithmetic at bit level.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('mult'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Plaintext / Ciphertext</label><input id="m-pt" value="HELLO" oninput="multViz()" maxlength="10"></div>
+      <div class="fg"><label>Key (coprime with 26)</label>
+        <select id="m-key" onchange="multViz()">
+          <option value="3">3</option><option value="5">5</option><option value="7" selected>7</option>
+          <option value="9">9</option><option value="11">11</option><option value="15">15</option>
+          <option value="17">17</option><option value="19">19</option><option value="21">21</option>
+          <option value="23">23</option><option value="25">25</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="m-enc-btn" onclick="multMode('enc')">&#x1F512; Encrypt</button>
+    <button class="mode-btn" id="m-dec-btn" onclick="multMode('dec')">&#x1F513; Decrypt</button>
+  </div>
+  <div id="m-result-banner"></div><div class="bit-stage"><div class="bit-stage-title">Input bits (ASCII)</div><div id="m-in-bits"></div><div id="m-in-repr"></div></div>
+  <div id="m-table-wrap"></div>
+  <div class="bit-stage"><div class="bit-stage-title">Output bits</div><div id="m-out-bits"></div><div id="m-out-repr"></div></div>
+  <div id="m-dec-section" style="display:none">
+    <div class="sec-div">Decryption — multiply by modular inverse k⁻¹</div>
+    <div class="dec-stage">
+      <div class="bit-stage-title">Decrypted bits</div>
+      <div id="m-dec-bits"></div><div id="m-dec-repr"></div>
+    </div>
+    <div id="m-dec-table"></div>
+  </div>
+  <div class="cards-grid" id="m-cards"></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 1 · Classical · Mono-alphabetic</div>
+      <div class="aph-title">Multiplicative Cipher</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-mult-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-mult-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-mult-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-mult-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="kw">function</span> <span class="fn">multEncrypt</span>(plaintext, key):</span>
+<span class="pseudo-line">  <span class="cm">// key must be coprime with 26</span></span>
+<span class="pseudo-line">  ciphertext = <span class="vr">""</span></span>
+<span class="pseudo-line">  <span class="kw">for each</span> char <span class="kw">in</span> plaintext:</span>
+<span class="pseudo-line">    pos = ASCII(char) - <span class="num">65</span></span>
+<span class="pseudo-line">    enc = (pos × key) mod <span class="num">26</span></span>
+<span class="pseudo-line">    ciphertext += ASCII(enc + <span class="num">65</span>)</span>
+<span class="pseudo-line">  <span class="kw">return</span> ciphertext</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">multDecrypt</span>(ciphertext, key):</span>
+<span class="pseudo-line">  keyInv = <span class="fn">modInverse</span>(key, <span class="num">26</span>)</span>
+<span class="pseudo-line">  <span class="kw">return</span> <span class="fn">multEncrypt</span>(ciphertext, keyInv)</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">modInverse</span>(a, m):</span>
+<span class="pseudo-line">  <span class="kw">for</span> x = <span class="num">1</span> <span class="kw">to</span> m:</span>
+<span class="pseudo-line">    <span class="kw">if</span> (a × x) mod m == <span class="num">1</span>: <span class="kw">return</span> x</span></div>
+    </div>
+    <div class="aptab-pane" id="ap-mult-formula">
+      <div class="formula-box">
+<span class="fl">Encrypt:</span> <span class="fv">C = (P × k) mod 26</span><br>
+<span class="fl">Decrypt:</span> <span class="fv">P = (C × k⁻¹) mod 26</span><br>
+<span class="fl">Condition:</span> <span class="fo">gcd(k, 26) = 1</span><br>
+<span class="fc">Valid keys: 1,3,5,7,9,11,15,17,19,21,23,25</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-mult-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Valid keys</td><td class="cx-bad">12 keys</td></tr><tr><td>Encrypt</td><td class="cx-ok">O(n)</td></tr><tr><td>Decrypt</td><td class="cx-ok">O(n) + inverse</td></tr><tr><td>Security</td><td class="cx-bad">Very weak</td></tr><tr><td>Attack</td><td class="cx-bad">Brute-force</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= VIGENERE ======================================================= -->
+<div class="page" id="page-vig">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 1 · Classical · Poly-alphabetic</div>
+    <div class="algo-title">Vigenère <span>Cipher</span></div>
+    <div class="algo-meta">Each plaintext letter gets a <strong>different shift</strong> based on the keyword. Keyword repeats. So 'A' might become 'L' in position 1 and 'B' in position 2. This defeats simple frequency analysis.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('vigenere'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Plaintext / Ciphertext</label><input id="v-pt" value="ATTACKATDAWN" oninput="vigViz()" maxlength="12"></div>
+      <div class="fg"><label>Keyword</label><input id="v-key" value="LEMON" oninput="vigViz()" maxlength="10"></div>
+    </div>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="v-enc-btn" onclick="vigMode('enc')">&#x1F512; Encrypt</button>
+    <button class="mode-btn" id="v-dec-btn" onclick="vigMode('dec')">&#x1F513; Decrypt</button>
+  </div>
+  <div class="bit-stage"><div class="bit-stage-title">Plaintext bits in memory</div><div id="v-in-bits"></div><div id="v-in-repr"></div></div>
+  <div class="bit-stage"><div class="bit-stage-title">Keyword bits (repeating)</div><div id="v-key-bits"></div><div id="v-key-repr"></div></div>
+  <div id="v-table-wrap"></div>
+  <div id="v-result-banner"></div><div class="bit-stage"><div class="bit-stage-title">Output bits (with char / hex / dec)</div><div id="v-out-bits"></div><div id="v-out-repr"></div></div>
+  <div id="v-dec-section" style="display:none">
+    <div class="sec-div">Decryption — subtract keyword shifts</div>
+    <div class="dec-stage">
+      <div class="bit-stage-title">Decrypted bits</div>
+      <div id="v-dec-bits"></div><div id="v-dec-repr"></div>
+    </div>
+    <div id="v-dec-table"></div>
+  </div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 1 · Classical · Poly-alphabetic</div>
+      <div class="aph-title">Vigenère Cipher</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-vig-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-vig-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-vig-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-vig-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="kw">function</span> <span class="fn">vigenereEncrypt</span>(plaintext, keyword):</span>
+<span class="pseudo-line">  ciphertext = <span class="vr">""</span></span>
+<span class="pseudo-line">  kLen = length(keyword)</span>
+<span class="pseudo-line">  j = <span class="num">0</span>   <span class="cm">// keyword index</span></span>
+<span class="pseudo-line">  <span class="kw">for</span> i = <span class="num">0</span> <span class="kw">to</span> len(plaintext):</span>
+<span class="pseudo-line">    P = pos(plaintext[i])</span>
+<span class="pseudo-line">    K = pos(keyword[j mod kLen])</span>
+<span class="pseudo-line">    C = (P + K) mod <span class="num">26</span></span>
+<span class="pseudo-line">    ciphertext += char(C)</span>
+<span class="pseudo-line">    j++</span>
+<span class="pseudo-line">  <span class="kw">return</span> ciphertext</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">vigenereDecrypt</span>(ciphertext, keyword):</span>
+<span class="pseudo-line">  <span class="cm">// Replace (P + K) with (C − K + 26)</span></span>
+<span class="pseudo-line">  P = (C − K + <span class="num">26</span>) mod <span class="num">26</span></span></div>
+    </div>
+    <div class="aptab-pane" id="ap-vig-formula">
+      <div class="formula-box">
+<span class="fl">Encrypt:</span> <span class="fv">Cᵢ = (Pᵢ + Kᵢ) mod 26</span><br>
+<span class="fl">Decrypt:</span> <span class="fv">Pᵢ = (Cᵢ − Kᵢ + 26) mod 26</span><br>
+<span class="fc">Kᵢ = keyword[i mod keyword_length]</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-vig-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Key space</td><td class="cx-ok">26ᴸ (L=key len)</td></tr><tr><td>Encrypt</td><td class="cx-ok">O(n)</td></tr><tr><td>Decrypt</td><td class="cx-ok">O(n)</td></tr><tr><td>Security</td><td class="cx-warn">Weak (Kasiski)</td></tr><tr><td>Attack</td><td class="cx-warn">Index of coincidence</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= PLAYFAIR ======================================================= -->
+<div class="page" id="page-playfair">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 1 · Classical · Digraph</div>
+    <div class="algo-title">Playfair <span>Cipher</span></div>
+    <div class="algo-meta">Letters are encoded in <strong>pairs (digraphs)</strong>. A 5×5 matrix is built from the keyword. Each pair is encrypted by one of 3 rules. Each cell shows the letter, its position (row,col), and ASCII bits.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('playfair'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Plaintext / Ciphertext</label><input id="pf-pt" value="HELLO" oninput="pfViz()" maxlength="10"></div>
+      <div class="fg"><label>Keyword</label><input id="pf-key" value="MONARCHY" oninput="pfViz()" maxlength="12"></div>
+    </div>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="pf-enc-btn" onclick="pfMode('enc')">&#x1F512; Encrypt</button>
+    <button class="mode-btn" id="pf-dec-btn" onclick="pfMode('dec')">&#x1F513; Decrypt</button>
+  </div>
+  <div id="pf-result-banner"></div><div class="sec-div">5×5 Key Matrix (hover cells to see ASCII bits)</div>
+  <div id="pf-matrix-wrap"></div>
+  <div class="sec-div">Digraph Pair Processing</div>
+  <div id="pf-pairs-wrap"></div>
+  <div id="pf-dec-section" style="display:none">
+    <div class="sec-div">Decryption — reverse Playfair rules</div>
+    <div id="pf-dec-wrap"></div>
+  </div>
+  <div class="cards-grid" id="pf-cards"></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 1 · Classical · Digraph</div>
+      <div class="aph-title">Playfair Cipher</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-playfair-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-playfair-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-playfair-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-playfair-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="kw">function</span> <span class="fn">buildMatrix</span>(keyword):</span>
+<span class="pseudo-line">  mat = unique chars of keyword</span>
+<span class="pseudo-line">       + remaining A–Z (skip J)</span>
+<span class="pseudo-line">  <span class="kw">return</span> 5×5 matrix of mat</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">playfairEncrypt</span>(text, key):</span>
+<span class="pseudo-line">  mat = <span class="fn">buildMatrix</span>(key)</span>
+<span class="pseudo-line">  pairs = <span class="fn">makePairs</span>(text) <span class="cm">// handle XX→XQ</span></span>
+<span class="pseudo-line">  <span class="kw">for each</span> [A, B] <span class="kw">in</span> pairs:</span>
+<span class="pseudo-line">    [r1,c1] = <span class="fn">find</span>(mat, A)</span>
+<span class="pseudo-line">    [r2,c2] = <span class="fn">find</span>(mat, B)</span>
+<span class="pseudo-line">    <span class="kw">if</span> r1 == r2:  <span class="cm">// same row</span></span>
+<span class="pseudo-line">      out = mat[r1,(c1+1)%5], mat[r2,(c2+1)%5]</span>
+<span class="pseudo-line">    <span class="kw">elif</span> c1 == c2: <span class="cm">// same col</span></span>
+<span class="pseudo-line">      out = mat[(r1+1)%5,c1], mat[(r2+1)%5,c2]</span>
+<span class="pseudo-line">    <span class="kw">else</span>:          <span class="cm">// rectangle</span></span>
+<span class="pseudo-line">      out = mat[r1,c2], mat[r2,c1]</span>
+<span class="pseudo-line"><span class="cm">// Decrypt: same rules, shift left/up instead</span></span></div>
+    </div>
+    <div class="aptab-pane" id="ap-playfair-formula">
+      <div class="formula-box">
+<span class="fl">Same row:</span> <span class="fv">shift right (enc) / left (dec)</span><br>
+<span class="fl">Same col:</span> <span class="fv">shift down (enc) / up (dec)</span><br>
+<span class="fl">Rectangle:</span> <span class="fv">swap column indices (both ways)</span><br>
+<span class="fc">J treated as I. Repeated letters get X inserted.</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-playfair-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Matrix</td><td class="cx-ok">5×5 = 25 letters</td></tr><tr><td>Digraphs</td><td class="cx-ok">625 possible</td></tr><tr><td>Encrypt</td><td class="cx-ok">O(n)</td></tr><tr><td>Security</td><td class="cx-warn">Moderate</td></tr><tr><td>Attack</td><td class="cx-warn">Digraph frequency</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= HILL ======================================================= -->
+<div class="page" id="page-hill">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 1 · Classical · Matrix</div>
+    <div class="algo-title">Hill <span>Cipher</span></div>
+    <div class="algo-meta">Converts letter pairs to a <strong>2-element vector</strong>, multiplies by key matrix mod 26. See the actual matrix multiplication at every number level, then watch the result bits.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('hill'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Plaintext / Ciphertext</label><input id="h-pt" value="HELPME" oninput="hillViz()" maxlength="8"></div>
+      <div class="fg"><label>2×2 Key Matrix (a,b,c,d)</label><input id="h-key" value="3,3,2,5" oninput="hillViz()"></div>
+    </div>
+  </div>
+  <div id="hill-result-banner"></div><div class="mode-toggle">
+    <button class="mode-btn active" id="h-enc-btn" onclick="hillMode('enc')">&#x1F512; Encrypt</button>
+    <button class="mode-btn" id="h-dec-btn" onclick="hillMode('dec')">&#x1F513; Decrypt</button>
+  </div>
+  <div id="hill-wrap"></div>
+  <div id="hill-dec-section" style="display:none">
+    <div class="sec-div">Decryption — multiply by K⁻¹ mod 26</div>
+    <div id="hill-dec-wrap"></div>
+  </div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 1 · Classical · Matrix</div>
+      <div class="aph-title">Hill Cipher</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-hill-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-hill-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-hill-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-hill-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="kw">function</span> <span class="fn">hillEncrypt</span>(plaintext, K):</span>
+<span class="pseudo-line">  <span class="cm">// K is n×n key matrix mod 26</span></span>
+<span class="pseudo-line">  padded = <span class="fn">pad</span>(plaintext) <span class="cm">// make even length</span></span>
+<span class="pseudo-line">  ciphertext = <span class="vr">""</span></span>
+<span class="pseudo-line">  <span class="kw">for</span> i = <span class="num">0</span> step <span class="num">2</span>:</span>
+<span class="pseudo-line">    P = vector[pos(char[i]), pos(char[i+1])]</span>
+<span class="pseudo-line">    C = (K × P) mod <span class="num">26</span></span>
+<span class="pseudo-line">    ciphertext += char(C[0]) + char(C[1])</span>
+<span class="pseudo-line">  <span class="kw">return</span> ciphertext</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">hillDecrypt</span>(ciphertext, K):</span>
+<span class="pseudo-line">  det = (K[0,0]×K[1,1] - K[0,1]×K[1,0]) mod <span class="num">26</span></span>
+<span class="pseudo-line">  detInv = <span class="fn">modInverse</span>(det, <span class="num">26</span>)</span>
+<span class="pseudo-line">  K_inv = detInv × adj(K) mod <span class="num">26</span></span>
+<span class="pseudo-line">  <span class="kw">return</span> <span class="fn">hillEncrypt</span>(ciphertext, K_inv)</span></div>
+    </div>
+    <div class="aptab-pane" id="ap-hill-formula">
+      <div class="formula-box">
+<span class="fl">Encrypt:</span> <span class="fv">C = K × P (mod 26)</span><br>
+<span class="fl">Decrypt:</span> <span class="fv">P = K⁻¹ × C (mod 26)</span><br>
+<span class="fl">Inverse:</span> <span class="fv">K⁻¹ = det⁻¹ × adj(K) mod 26</span><br>
+<span class="fc">Requires: gcd(det(K), 26) = 1</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-hill-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Block size</td><td class="cx-ok">n letters</td></tr><tr><td>Encrypt</td><td class="cx-ok">O(n²)</td></tr><tr><td>Decrypt</td><td class="cx-warn">O(n²) + inverse</td></tr><tr><td>Security</td><td class="cx-bad">Weak vs KPA</td></tr><tr><td>Attack</td><td class="cx-bad">Known-plaintext</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= DES ======================================================= -->
+<div class="page" id="page-des">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 4 · Symmetric · Block Cipher · 64-bit</div>
+    <div class="algo-title">DES — <span>Feistel Network</span></div>
+    <div class="algo-meta">Your 8-char input = <strong>64 bits</strong>. DES splits them L|R (32 bits each). Each round: new_L = old_R, new_R = old_L XOR f(R, subkey). See every bit of L and R change across all 16 rounds.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('des'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Plaintext / Ciphertext (8 chars)</label><input id="des-pt" value="SECURITY" maxlength="8" oninput="desViz()"></div>
+      <div class="fg"><label>Key (exactly 8 chars)</label><input id="des-key" value="MYSECRET" maxlength="8" oninput="desViz()"></div>
+    </div>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="des-enc-btn" onclick="desMode('enc')">&#x1F512; Encrypt</button>
+    <button class="mode-btn" id="des-dec-btn" onclick="desMode('dec')">&#x1F513; Decrypt</button>
+  </div>
+  <div class="sec-div">64-bit Input Block</div>
+  <div class="bit-stage">
+    <div class="bit-stage-title">All 64 input bits — 8 bytes, each character = 8 bits</div>
+    <div id="des-input-bits"></div>
+    <div id="des-input-repr"></div>
+  </div>
+  <div class="sec-div">Initial Permutation → L0 | R0 Split</div>
+  <div id="des-split"></div>
+  <div class="sec-div">Feistel Rounds — L and R halves evolving</div>
+  <div id="des-rounds"></div>
+  <div class="sec-div">Final Ciphertext (64 bits)</div>
+  <div id="des-result-banner"></div><div class="bit-stage"><div class="bit-stage-title">Cipher output bits (hex)</div><div id="des-output-bits"></div><div id="des-output-repr"></div></div>
+  <div id="des-dec-section" style="display:none">
+    <div class="sec-div">Decryption — same Feistel, reversed subkeys (K16→K1)</div>
+    <div class="dec-stage"><div class="bit-stage-title">Decryption rounds — L and R reverse back</div><div id="des-dec-rounds"></div></div>
+    <div class="dec-stage"><div class="bit-stage-title">Recovered plaintext bits</div><div id="des-dec-bits"></div><div id="des-dec-repr"></div></div>
+  </div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 4 · Symmetric · Block Cipher</div>
+      <div class="aph-title">DES — Feistel Network</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-des-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-des-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-des-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-des-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="kw">function</span> <span class="fn">DES_Encrypt</span>(plaintext64, key64):</span>
+<span class="pseudo-line">  bits = <span class="fn">IP</span>(plaintext64)  <span class="cm">// initial permute</span></span>
+<span class="pseudo-line">  L, R = bits[0:32], bits[32:64]</span>
+<span class="pseudo-line">  subkeys = <span class="fn">KeySchedule</span>(key64) <span class="cm">// K1..K16</span></span>
+<span class="pseudo-line">  <span class="kw">for</span> r = <span class="num">1</span> <span class="kw">to</span> <span class="num">16</span>:</span>
+<span class="pseudo-line">    newL = R</span>
+<span class="pseudo-line">    newR = L XOR <span class="fn">f</span>(R, subkeys[r])</span>
+<span class="pseudo-line">    L, R = newL, newR</span>
+<span class="pseudo-line">  <span class="kw">return</span> <span class="fn">IP_inv</span>(R + L)  <span class="cm">// swap final</span></span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">f</span>(R32, subkey48):</span>
+<span class="pseudo-line">  expanded = <span class="fn">E</span>(R32)    <span class="cm">// 32 → 48 bits</span></span>
+<span class="pseudo-line">  xored    = expanded XOR subkey48</span>
+<span class="pseudo-line">  sboxOut  = <span class="fn">S_boxes</span>(xored) <span class="cm">// 8 S-boxes 6→4</span></span>
+<span class="pseudo-line">  <span class="kw">return</span> <span class="fn">P</span>(sboxOut)  <span class="cm">// P-box permute</span></span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Decrypt: same algorithm, subkeys K16→K1</span></span></div>
+    </div>
+    <div class="aptab-pane" id="ap-des-formula">
+      <div class="formula-box">
+<span class="fl">Block:</span> <span class="fv">64 bits</span> &nbsp; <span class="fl">Key:</span> <span class="fv">56 bits effective</span><br>
+<span class="fl">Rounds:</span> <span class="fv">16</span> &nbsp; <span class="fl">Structure:</span> <span class="fv">Feistel</span><br>
+<span class="fl">Round:</span> <span class="fv">Lₙ = Rₙ₋₁, Rₙ = Lₙ₋₁ ⊕ f(Rₙ₋₁, Kₙ)</span><br>
+<span class="fc">Decrypt = same Feistel with reversed subkeys</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-des-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Block size</td><td class="cx-warn">64-bit</td></tr><tr><td>Key size</td><td class="cx-bad">56-bit</td></tr><tr><td>Rounds</td><td class="cx-ok">16</td></tr><tr><td>Security</td><td class="cx-bad">Broken (1998)</td></tr><tr><td>Successor</td><td class="cx-ok">3DES / AES</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= AES ======================================================= -->
+<div class="page" id="page-aes">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 5 · Symmetric · Block Cipher · 128-bit</div>
+    <div class="algo-title">AES-128 — <span>State Matrix</span></div>
+    <div class="algo-meta">Your 16-char input = <strong>128 bits</strong> arranged in a 4×4 byte matrix called the <strong>State</strong>. Each round transforms this matrix through 4 operations. Hover cells to see their bits. Watch the matrix change color per operation.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('aes'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Plaintext / Ciphertext (16 chars)</label><input id="aes-pt" value="MYSECRETMESSAGE!" maxlength="16" oninput="aesViz()"></div>
+      <div class="fg"><label>Key (16 chars)</label><input id="aes-key" value="THISIS128BITKEY!" maxlength="16" oninput="aesViz()"></div>
+    </div>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="aes-enc-btn" onclick="aesMode('enc')">&#x1F512; Encrypt</button>
+    <button class="mode-btn" id="aes-dec-btn" onclick="aesMode('dec')">&#x1F513; Decrypt</button>
+  </div>
+  <div id="aes-result-banner"></div><div class="step-nav" id="aes-step-nav"></div>
+  <div id="aes-step-display"></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 5 · Symmetric · Block Cipher</div>
+      <div class="aph-title">AES-128 — Rijndael</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-aes-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-aes-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-aes-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-aes-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="kw">function</span> <span class="fn">AES_Encrypt</span>(plaintext, key):</span>
+<span class="pseudo-line">  state = <span class="fn">bytes_to_4x4_matrix</span>(plaintext)</span>
+<span class="pseudo-line">  rkeys = <span class="fn">KeyExpansion</span>(key) <span class="cm">// 11 round keys</span></span>
+<span class="pseudo-line">  state = <span class="fn">AddRoundKey</span>(state, rkeys[0])</span>
+<span class="pseudo-line">  <span class="kw">for</span> r = <span class="num">1</span> <span class="kw">to</span> <span class="num">9</span>:</span>
+<span class="pseudo-line">    state = <span class="fn">SubBytes</span>(state)   <span class="cm">// S-box</span></span>
+<span class="pseudo-line">    state = <span class="fn">ShiftRows</span>(state)  <span class="cm">// row shifts</span></span>
+<span class="pseudo-line">    state = <span class="fn">MixColumns</span>(state) <span class="cm">// GF(2⁸) mix</span></span>
+<span class="pseudo-line">    state = <span class="fn">AddRoundKey</span>(state, rkeys[r])</span>
+<span class="pseudo-line">  <span class="cm">// Final round (no MixColumns):</span></span>
+<span class="pseudo-line">  state = <span class="fn">SubBytes</span>(state)</span>
+<span class="pseudo-line">  state = <span class="fn">ShiftRows</span>(state)</span>
+<span class="pseudo-line">  state = <span class="fn">AddRoundKey</span>(state, rkeys[10])</span>
+<span class="pseudo-line">  <span class="kw">return</span> <span class="fn">matrix_to_bytes</span>(state)</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Decrypt: InvShiftRows→InvSubBytes→</span></span>
+<span class="pseudo-line"><span class="cm">//          AddRoundKey→InvMixColumns</span></span></div>
+    </div>
+    <div class="aptab-pane" id="ap-aes-formula">
+      <div class="formula-box">
+<span class="fl">Block:</span> <span class="fv">128 bits (4×4 bytes)</span><br>
+<span class="fl">Key sizes:</span> <span class="fv">128 / 192 / 256 bits</span><br>
+<span class="fl">Rounds:</span> <span class="fv">10 / 12 / 14</span><br>
+<span class="fl">MixCols:</span> <span class="fv">GF(2⁸) polynomial multiply</span><br>
+<span class="fc">SubBytes uses GF(2⁸) multiplicative inverse</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-aes-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Block size</td><td class="cx-ok">128-bit</td></tr><tr><td>Key size</td><td class="cx-ok">128/192/256-bit</td></tr><tr><td>Rounds</td><td class="cx-ok">10/12/14</td></tr><tr><td>Security</td><td class="cx-ok">No practical attack</td></tr><tr><td>Standard</td><td class="cx-ok">NIST FIPS 197</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= RSA ======================================================= -->
+<div class="page" id="page-rsa">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 6 · Asymmetric · Public Key</div>
+    <div class="algo-title">RSA — <span>Step by Step</span></div>
+    <div class="algo-meta">RSA security = difficulty of <strong>factoring n = p×q</strong>. Key insight: anyone can encrypt with public (e,n) but only you can decrypt with private d. Watch every modular arithmetic step.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('rsa'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Prime p</label><input id="rsa-p" type="number" value="61" oninput="rsaViz()"></div>
+      <div class="fg"><label>Prime q</label><input id="rsa-q" type="number" value="53" oninput="rsaViz()"></div>
+      <div class="fg"><label>Public exponent e</label><input id="rsa-e" type="number" value="17" oninput="rsaViz()"></div>
+      <div class="fg"><label>Message M (integer)</label><input id="rsa-m" type="number" value="65" oninput="rsaViz()"></div>
+    </div>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="rsa-enc-btn" onclick="rsaMode('enc')">&#x1F512; Encrypt (M → C)</button>
+    <button class="mode-btn" id="rsa-dec-btn" onclick="rsaMode('dec')">&#x1F513; Decrypt (C → M)</button>
+  </div>
+  <div id="rsa-wrap"></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 6 · Asymmetric · Public Key</div>
+      <div class="aph-title">RSA Algorithm</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-rsa-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-rsa-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-rsa-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-rsa-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="cm">// KEY GENERATION</span></span>
+<span class="pseudo-line">choose primes p, q</span>
+<span class="pseudo-line">n = p × q           <span class="cm">// public modulus</span></span>
+<span class="pseudo-line">φ(n) = (p-1)(q-1)  <span class="cm">// Euler totient</span></span>
+<span class="pseudo-line">choose e: gcd(e, φ(n)) = 1</span>
+<span class="pseudo-line">d = e⁻¹ mod φ(n)   <span class="cm">// private key</span></span>
+<span class="pseudo-line">public  key = (e, n)</span>
+<span class="pseudo-line">private key = (d, n)</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// ENCRYPTION (anyone)</span></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">encrypt</span>(M, e, n):</span>
+<span class="pseudo-line">  <span class="kw">return</span> C = M^e mod n</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// DECRYPTION (private key holder)</span></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">decrypt</span>(C, d, n):</span>
+<span class="pseudo-line">  <span class="kw">return</span> M = C^d mod n</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Works because: M^(ed) ≡ M (mod n)</span></span>
+<span class="pseudo-line"><span class="cm">// Security: hard to factor n = p×q</span></span></div>
+    </div>
+    <div class="aptab-pane" id="ap-rsa-formula">
+      <div class="formula-box">
+<span class="fl">Encrypt:</span> <span class="fv">C = Mᵉ mod n</span><br>
+<span class="fl">Decrypt:</span> <span class="fv">M = Cᵈ mod n</span><br>
+<span class="fl">Key gen:</span> <span class="fv">d = e⁻¹ mod φ(n)</span><br>
+<span class="fc">Security: Integer Factorization Problem</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-rsa-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Key size</td><td class="cx-ok">2048+ bits</td></tr><tr><td>Encrypt</td><td class="cx-warn">O(log e)</td></tr><tr><td>Decrypt</td><td class="cx-warn">O(log d)</td></tr><tr><td>Security</td><td class="cx-ok">IFP (strong)</td></tr><tr><td>Quantum</td><td class="cx-bad">Broken by Shor</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= DIFFIE-HELLMAN ======================================================= -->
+<div class="page" id="page-dh">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 7 · Key Exchange · Discrete Logarithm</div>
+    <div class="algo-title">Diffie-Hellman <span>Key Exchange</span></div>
+    <div class="algo-meta">Alice and Bob <strong>never send the secret</strong>. They exchange public values. An eavesdropper sees g, p, A, B — but cannot compute the shared key without solving the discrete logarithm problem.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('dh'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Prime p (public)</label><input id="dh-p" type="number" value="23" oninput="dhViz()"></div>
+      <div class="fg"><label>Generator g (public)</label><input id="dh-g" type="number" value="5" oninput="dhViz()"></div>
+      <div class="fg"><label>Alice private key a</label><input id="dh-a" type="number" value="6" oninput="dhViz()"></div>
+      <div class="fg"><label>Bob private key b</label><input id="dh-b" type="number" value="15" oninput="dhViz()"></div>
+    </div>
+  </div>
+  <div id="dh-wrap"></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 7 · Key Exchange</div>
+      <div class="aph-title">Diffie-Hellman</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-dh-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-dh-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-dh-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-dh-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="cm">// PUBLIC parameters (shared openly)</span></span>
+<span class="pseudo-line">p = large prime</span>
+<span class="pseudo-line">g = generator (primitive root mod p)</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Alice:</span></span>
+<span class="pseudo-line">a = random private integer</span>
+<span class="pseudo-line">A = g^a mod p      <span class="cm">// send to Bob</span></span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Bob:</span></span>
+<span class="pseudo-line">b = random private integer</span>
+<span class="pseudo-line">B = g^b mod p      <span class="cm">// send to Alice</span></span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Shared secret computation:</span></span>
+<span class="pseudo-line">Alice: S = B^a mod p</span>
+<span class="pseudo-line">Bob:   S = A^b mod p</span>
+<span class="pseudo-line"><span class="cm">// Both equal g^(ab) mod p ✓</span></span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Eve sees p,g,A,B — cannot find a or b</span></span>
+<span class="pseudo-line"><span class="cm">// without solving Discrete Log: a = log_g(A)</span></span></div>
+    </div>
+    <div class="aptab-pane" id="ap-dh-formula">
+      <div class="formula-box">
+<span class="fl">Alice public:</span> <span class="fv">A = gᵃ mod p</span><br>
+<span class="fl">Bob public:</span> <span class="fv">B = gᵇ mod p</span><br>
+<span class="fl">Shared:</span> <span class="fv">S = Bᵃ mod p = Aᵇ mod p = g^(ab) mod p</span><br>
+<span class="fc">Security: Discrete Logarithm Problem (DLP)</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-dh-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Public params</td><td class="cx-ok">p, g</td></tr><tr><td>Key exchange</td><td class="cx-ok">2 messages</td></tr><tr><td>Shared secret</td><td class="cx-ok">g^(ab) mod p</td></tr><tr><td>Security</td><td class="cx-ok">DLP (strong)</td></tr><tr><td>Weakness</td><td class="cx-warn">No authentication</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= ELGAMAL ======================================================= -->
+<div class="page" id="page-elgamal">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 8 · Asymmetric · Discrete Logarithm</div>
+    <div class="algo-title">ElGamal <span>Cryptography</span></div>
+    <div class="algo-meta">Built on DH. Encryption produces <strong>two values (C1, C2)</strong>. C1 hides the session key k. C2 = M × y^k blends the message with the key. Decryption peels off y^k using private key x.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('elgamal'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>Prime p</label><input id="eg-p" type="number" value="23" oninput="egViz()"></div>
+      <div class="fg"><label>Generator g</label><input id="eg-g" type="number" value="5" oninput="egViz()"></div>
+      <div class="fg"><label>Private key x</label><input id="eg-x" type="number" value="6" oninput="egViz()"></div>
+      <div class="fg"><label>Message M</label><input id="eg-m" type="number" value="12" oninput="egViz()"></div>
+      <div class="fg"><label>Session key k</label><input id="eg-k" type="number" value="3" oninput="egViz()"></div>
+    </div>
+  </div>
+  <div id="eg-wrap"></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 8 · Asymmetric · DLP</div>
+      <div class="aph-title">ElGamal Cryptosystem</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-elgamal-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-elgamal-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-elgamal-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-elgamal-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="cm">// KEY GENERATION</span></span>
+<span class="pseudo-line">p = large prime, g = generator</span>
+<span class="pseudo-line">x = private key (random)</span>
+<span class="pseudo-line">y = g^x mod p       <span class="cm">// public key</span></span>
+<span class="pseudo-line">public  = (p, g, y)</span>
+<span class="pseudo-line">private = x</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// ENCRYPTION</span></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">encrypt</span>(M, p, g, y):</span>
+<span class="pseudo-line">  k = random session key</span>
+<span class="pseudo-line">  C1 = g^k mod p</span>
+<span class="pseudo-line">  C2 = M × y^k mod p</span>
+<span class="pseudo-line">  <span class="kw">return</span> (C1, C2)</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// DECRYPTION</span></span>
+<span class="pseudo-line"><span class="kw">function</span> <span class="fn">decrypt</span>(C1, C2, x, p):</span>
+<span class="pseudo-line">  s = C1^x mod p      <span class="cm">// = y^k</span></span>
+<span class="pseudo-line">  sInv = <span class="fn">modInverse</span>(s, p)</span>
+<span class="pseudo-line">  M = C2 × sInv mod p</span>
+<span class="pseudo-line">  <span class="kw">return</span> M</span></div>
+    </div>
+    <div class="aptab-pane" id="ap-elgamal-formula">
+      <div class="formula-box">
+<span class="fl">Pub key:</span> <span class="fv">y = gˣ mod p</span><br>
+<span class="fl">Encrypt:</span> <span class="fv">C1 = gᵏ mod p, C2 = M·yᵏ mod p</span><br>
+<span class="fl">Decrypt:</span> <span class="fv">M = C2 · (C1ˣ)⁻¹ mod p</span><br>
+<span class="fc">Security: Decisional DH Problem (DDH)</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-elgamal-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Ciphertext size</td><td class="cx-warn">2× message</td></tr><tr><td>Encrypt</td><td class="cx-warn">O(log p)</td></tr><tr><td>Decrypt</td><td class="cx-warn">O(log p)</td></tr><tr><td>Security</td><td class="cx-ok">DDH (strong)</td></tr><tr><td>Randomised</td><td class="cx-ok">Yes (semantic sec)</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div>
+</div>
+</div>
+
+<!-- ======================================================= ECC ======================================================= -->
+<div class="page" id="page-ecc">
+<div class="container"><div class="page-inner"><div class="left-col">
+  <div class="algo-header">
+    <div class="algo-tag">Task 8 · Asymmetric · Elliptic Curve</div>
+    <div class="algo-title">Elliptic Curve <span>Cryptography</span></div>
+    <div class="algo-meta">Points on <strong>y² ≡ x³ + ax + b (mod p)</strong> form a group under addition. Scalar multiplication kG is fast; reversing it (finding k from kG) is computationally infeasible. Every point plotted live.</div>
+    <script>document.currentScript.insertAdjacentHTML('afterend', makeInfoPanel('ecc'));</script>
+  </div>
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="fg"><label>a</label><input id="ecc-a" type="number" value="2" oninput="eccViz()"></div>
+      <div class="fg"><label>b</label><input id="ecc-b" type="number" value="2" oninput="eccViz()"></div>
+      <div class="fg"><label>p (field prime)</label><input id="ecc-p" type="number" value="17" oninput="eccViz()"></div>
+      <div class="fg"><label>Generator G (x,y)</label><input id="ecc-g" value="5,1" oninput="eccViz()"></div>
+      <div class="fg"><label>Alice key ka</label><input id="ecc-ka" type="number" value="2" oninput="eccViz()"></div>
+      <div class="fg"><label>Bob key kb</label><input id="ecc-kb" type="number" value="3" oninput="eccViz()"></div>
+    </div>
+  </div>
+  <div id="ecc-wrap"></div>
+  <div class="ecc-wrap"><canvas id="ecc-canvas" width="500" height="360"></canvas></div>
+</div>
+<div class="right-col">
+  <div class="algo-panel">
+    <div class="algo-panel-head">
+      <div class="aph-tag">Task 8 · Asymmetric · ECDLP</div>
+      <div class="aph-title">Elliptic Curve Crypto</div>
+    </div>
+    <div class="algo-panel-tabs">
+      <button class="aptab active" onclick="switchAP(this,'ap-ecc-pseudo')">Algorithm</button>
+      <button class="aptab" onclick="switchAP(this,'ap-ecc-formula')">Formulas</button>
+      <button class="aptab" onclick="switchAP(this,'ap-ecc-cx')">Complexity</button>
+    </div>
+    <div class="aptab-pane active" id="ap-ecc-pseudo">
+      <div class="pseudo"><span class="pseudo-line"><span class="cm">// CURVE: y² ≡ x³ + ax + b (mod p)</span></span>
+<span class="pseudo-line">G = generator point on curve</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// POINT ADDITION: P + Q = R</span></span>
+<span class="pseudo-line"><span class="kw">if</span> P ≠ Q:</span>
+<span class="pseudo-line">  λ = (y₂-y₁)·(x₂-x₁)⁻¹ mod p</span>
+<span class="pseudo-line"><span class="kw">if</span> P == Q (doubling):</span>
+<span class="pseudo-line">  λ = (3x₁²+a)·(2y₁)⁻¹ mod p</span>
+<span class="pseudo-line">x₃ = λ²-x₁-x₂ mod p</span>
+<span class="pseudo-line">y₃ = λ(x₁-x₃)-y₁ mod p</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// ECDH KEY EXCHANGE</span></span>
+<span class="pseudo-line">Alice: Ka = private key</span>
+<span class="pseudo-line">       Pa = Ka × G  <span class="cm">// public</span></span>
+<span class="pseudo-line">Bob:   Kb = private key</span>
+<span class="pseudo-line">       Pb = Kb × G  <span class="cm">// public</span></span>
+<span class="pseudo-line">Shared: S = Ka×Pb = Kb×Pa = Ka·Kb·G</span>
+<span class="pseudo-line"></span>
+<span class="pseudo-line"><span class="cm">// Security: given G and kG, find k — infeasible</span></span></div>
+    </div>
+    <div class="aptab-pane" id="ap-ecc-formula">
+      <div class="formula-box">
+<span class="fl">Curve:</span> <span class="fv">y² ≡ x³ + ax + b (mod p)</span><br>
+<span class="fl">Pub key:</span> <span class="fv">Pa = ka × G</span><br>
+<span class="fl">Shared:</span> <span class="fv">S = ka × Pb = kb × Pa</span><br>
+<span class="fc">256-bit ECC ≈ 3072-bit RSA security</span>
+</div>
+    </div>
+    <div class="aptab-pane" id="ap-ecc-cx">
+      <table class="cx-table">
+        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+        <tbody><tr><td>Key size</td><td class="cx-ok">256-bit</td></tr><tr><td>Point add</td><td class="cx-ok">O(log p)</td></tr><tr><td>Security</td><td class="cx-ok">ECDLP (strong)</td></tr><tr><td>Advantage</td><td class="cx-ok">Smaller keys</td></tr><tr><td>Quantum</td><td class="cx-bad">Broken by Shor</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div></div></div>
+</div>
+</div>
+
+<!-- ========================================================= SCRIPTS ========================================================= -->
+<script>
+// ── UTILITIES ──────────────────────────────────────────────────────────────
+function toBin8(n){return(n>>>0).toString(2).padStart(8,'0');}
+function toBin32(n){return(n>>>0).toString(2).padStart(32,'0');}
+function toHex2(n){return n.toString(16).padStart(2,'0').toUpperCase();}
+function gcd(a,b){while(b){[a,b]=[b,a%b];}return a;}
+function modInv(a,m){a=((a%m)+m)%m;for(let x=1;x<m;x++)if((a*x)%m===1)return x;return -1;}
+function modPow(base,exp,mod){let r=1n;base=BigInt(base)%BigInt(mod);exp=BigInt(exp);mod=BigInt(mod);while(exp>0n){if(exp%2n===1n)r=r*base%mod;exp>>=1n;base=base*base%mod;}return Number(r);}
+function isPrime(n){if(n<2)return false;for(let i=2;i<=Math.sqrt(n);i++)if(n%i===0)return false;return true;}
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  event.target.classList.add('active');
+  const fns={caesar:caesarViz,mult:multViz,vig:vigViz,playfair:pfViz,hill:hillViz,des:desViz,aes:aesViz,rsa:rsaViz,dh:dhViz,elgamal:egViz,ecc:eccViz};
+  if(fns[name])fns[name]();
+}
+
+// ── BIT RENDERING ──────────────────────────────────────────────────────────
+function renderBits(container, bytes, prevBytes=null, hlClass='changed'){
+  const el=typeof container==='string'?document.getElementById(container):container;
+  if(!el)return;
+  let html='<div class="bits-row">';
+  bytes.forEach((byte,bi)=>{
+    if(bi>0)html+='<div class="bit-sep"></div>';
+    const prevByte=prevBytes?prevBytes[bi]:null;
+    const bin=toBin8(byte);
+    for(let i=0;i<8;i++){
+      const bit=bin[i];
+      let cls=bit==='1'?'bit-1':'bit-0';
+      if(prevByte!==null&&toBin8(prevByte)[i]!==bit)cls+=' '+hlClass;
+      html+=`<div class="bit ${cls}" title="bit ${bi*8+i}: value ${bit}">${bit}</div>`;
+    }
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function renderRepr(container, bytes){
+  const el=typeof container==='string'?document.getElementById(container):container;
+  if(!el)return;
+  let html='<div class="repr-row">';
+  bytes.forEach(b=>{
+    const ch=b>=32&&b<127?String.fromCharCode(b):'·';
+    html+=`<div class="repr-cell"><div class="repr-char">${ch}</div><div class="repr-hex">${toHex2(b)}</div><div class="repr-dec">${b}</div></div>`;
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function bytesFrom(str,len){
+  const s=(str||'').padEnd(len,' ').substring(0,len);
+  return s.split('').map(c=>c.charCodeAt(0));
+}
+
+// ── CAESAR ─────────────────────────────────────────────────────────────────
+let caesarCurrentMode='enc';
+function caesarMode(m){
+  caesarCurrentMode=m;
+  document.getElementById('c-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('c-dec-btn').classList.toggle('active',m==='dec');
+  document.getElementById('c-input-bits').closest('.bit-stage').querySelector('.bit-stage-title').textContent=m==='enc'?'How your plaintext is stored (ASCII → 8-bit binary)':'How your ciphertext is stored (ASCII → 8-bit binary)';
+  caesarViz();
+}
+function caesarViz(){
+  const pt=(document.getElementById('c-pt').value||'').toUpperCase();
+  const k=((parseInt(document.getElementById('c-key').value)||3)%26+26)%26;
+  const isEnc=caesarCurrentMode==='enc';
+  const inBytes=pt.split('').map(c=>c.charCodeAt(0));
+  renderBits('c-input-bits',inBytes);
+  renderRepr('c-input-repr',inBytes);
+  // Encryption table
+  let encBytes=[];
+  let tableHTML=`<div class="bit-stage"><div class="bit-stage-title">${isEnc?'Encryption':'Decryption'}: character-by-character transformation</div>
+  <table class="bit-table">
+  <thead><tr><th>Char</th><th>ASCII</th><th>Binary</th><th>−65=pos</th><th>${isEnc?'+'+k+' mod 26':'−'+k+' mod 26'}</th><th>+65</th><th>Result</th><th>Result Binary</th></tr></thead><tbody>`;
+  for(const c of pt){
+    if(c>='A'&&c<='Z'){
+      const asc=c.charCodeAt(0);
+      const pos=asc-65;
+      const out=isEnc?(pos+k)%26:((pos-k+26)%26);
+      const outAsc=out+65;
+      encBytes.push(outAsc);
+      const inBin=toBin8(asc);const outBin=toBin8(outAsc);
+      let binDiff='';
+      for(let i=0;i<8;i++){binDiff+=inBin[i]!==outBin[i]?`<span style="color:var(--orange);font-weight:600">${outBin[i]}</span>`:outBin[i];}
+      tableHTML+=`<tr>
+        <td class="td-char">${c}</td><td class="td-dec">${asc}</td>
+        <td class="td-bin">${inBin}</td><td class="td-op">${pos}</td>
+        <td class="td-op">${pos}${isEnc?'+':'−'}${k}=${isEnc?pos+k:pos-k} → <strong>${out}</strong></td>
+        <td class="td-dec">${outAsc}</td><td class="td-res">${String.fromCharCode(outAsc)}</td>
+        <td class="td-bin" style="letter-spacing:2px">${binDiff}</td>
+      </tr>`;
+    }
+  }
+  tableHTML+='</tbody></table></div>';
+  document.getElementById('c-table-wrap').innerHTML=tableHTML;
+  renderBits('c-output-bits',encBytes,inBytes.slice(0,encBytes.length));
+  renderRepr('c-output-repr',encBytes);
+  const outStr=encBytes.map(b=>String.fromCharCode(b)).join('');
+  // Decrypt section
+  renderResultBanner('c-result-banner', isEnc?'Plaintext':'Ciphertext', pt, isEnc?'Ciphertext':'Decrypted', outStr, !isEnc);
+  const decSec=document.getElementById('c-dec-section');
+  if(isEnc){
+    decSec.style.display='block';
+    // show decrypt step from the cipher output back to original
+    let decBytes=[];
+    let decTable=`<div class="bit-stage"><div class="bit-stage-title">Decryption verification: apply −${k} to ciphertext to recover plaintext</div>
+    <table class="bit-table"><thead><tr><th>Cipher char</th><th>ASCII</th><th>pos</th><th>−${k} mod 26</th><th>+65</th><th>Recovered</th></tr></thead><tbody>`;
+    for(const b of encBytes){
+      const ch=String.fromCharCode(b);
+      if(b>=65&&b<=90){
+        const pos=b-65;const dec=((pos-k+26)%26);const decA=dec+65;
+        decBytes.push(decA);
+        decTable+=`<tr><td class="td-char">${ch}</td><td class="td-dec">${b}</td><td class="td-op">${pos}</td>
+          <td class="td-op">${pos}−${k}=${pos-k} mod 26 = ${dec}</td><td class="td-dec">${decA}</td>
+          <td class="td-res">${String.fromCharCode(decA)}</td></tr>`;
+      }
+    }
+    decTable+='</tbody></table></div>';
+    renderBits('c-dec-bits',decBytes,encBytes.slice(0,decBytes.length));
+    renderRepr('c-dec-repr',decBytes);
+    document.getElementById('c-dec-table').innerHTML=decTable;
+  } else {
+    decSec.style.display='none';
+  }
+  document.getElementById('c-cards').innerHTML=`
+    <div class="info-card"><div class="ic-label">Mode</div><div class="ic-val" style="font-size:13px">${isEnc?'Encrypt':'Decrypt'}</div></div>
+    <div class="info-card"><div class="ic-label">Shift Key</div><div class="ic-val">${k}</div><div class="ic-sub">${isEnc?'shift right':'shift left'}</div></div>
+    <div class="info-card g"><div class="ic-label">Input</div><div class="ic-val">${pt}</div></div>
+    <div class="info-card o"><div class="ic-label">Output</div><div class="ic-val">${outStr}</div></div>`;
+}
+
+// ── MULTIPLICATIVE ─────────────────────────────────────────────────────────
+let multCurrentMode='enc';
+function multMode(m){
+  multCurrentMode=m;
+  document.getElementById('m-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('m-dec-btn').classList.toggle('active',m==='dec');
+  multViz();
+}
+function multViz(){
+  const pt=(document.getElementById('m-pt').value||'').toUpperCase();
+  const k=parseInt(document.getElementById('m-key').value)||7;
+  const ki=modInv(k,26);
+  const isEnc=multCurrentMode==='enc';
+  const inBytes=pt.split('').map(c=>c.charCodeAt(0));
+  renderBits('m-in-bits',inBytes);renderRepr('m-in-repr',inBytes);
+  let outBytes=[];
+  const opKey=isEnc?k:ki;
+  let html=`<div class="bit-stage"><div class="bit-stage-title">${isEnc?'Encryption':'Decryption'}: each char × ${opKey} mod 26</div>
+  <table class="bit-table"><thead><tr><th>Char</th><th>pos</th><th>pos×${opKey}</th><th>mod 26</th><th>+65</th><th>Result</th><th>Result Binary</th></tr></thead><tbody>`;
+  for(const c of pt){
+    if(c>='A'&&c<='Z'){
+      const n=c.charCodeAt(0)-65;
+      const e=((n*opKey)%26+26)%26;
+      const eA=e+65;outBytes.push(eA);
+      const inBin=toBin8(c.charCodeAt(0));const outBin=toBin8(eA);
+      let binDiff='';for(let i=0;i<8;i++)binDiff+=inBin[i]!==outBin[i]?`<span style="color:var(--orange);font-weight:600">${outBin[i]}</span>`:outBin[i];
+      html+=`<tr><td class="td-char">${c}</td><td class="td-op">${n}</td>
+        <td class="td-dec">${n}×${opKey}=${n*opKey}</td>
+        <td class="td-op">${n*opKey} mod 26 = <strong>${e}</strong></td>
+        <td class="td-dec">${eA}</td><td class="td-res">${String.fromCharCode(eA)}</td>
+        <td style="font-size:11px;letter-spacing:1px">${binDiff}</td></tr>`;
+    }
+  }
+  html+='</tbody></table></div>';
+  document.getElementById('m-table-wrap').innerHTML=html;
+  renderBits('m-out-bits',outBytes,inBytes.slice(0,outBytes.length));
+  renderRepr('m-out-repr',outBytes);
+  const outStr=outBytes.map(b=>String.fromCharCode(b)).join('');
+  // Decrypt verification section (shown only in encrypt mode)
+  renderResultBanner('m-result-banner', isEnc?'Plaintext':'Ciphertext', pt, isEnc?'Ciphertext':'Decrypted', outStr, !isEnc);
+  const decSec=document.getElementById('m-dec-section');
+  if(isEnc){
+    decSec.style.display='block';
+    let decBytes=[];
+    let decTable=`<div class="bit-stage"><div class="bit-stage-title">Decryption: apply inverse key k⁻¹=${ki} — each cipher char × ${ki} mod 26</div>
+    <table class="bit-table"><thead><tr><th>Cipher char</th><th>pos</th><th>pos×${ki}</th><th>mod 26</th><th>Recovered</th><th>Binary</th></tr></thead><tbody>`;
+    for(const b of outBytes){
+      if(b>=65&&b<=90){
+        const pos=b-65;const dec=((pos*ki)%26+26)%26;const decA=dec+65;decBytes.push(decA);
+        decTable+=`<tr><td class="td-char">${String.fromCharCode(b)}</td><td class="td-op">${pos}</td>
+          <td class="td-dec">${pos}×${ki}=${pos*ki}</td><td class="td-op">${pos*ki} mod 26 = ${dec}</td>
+          <td class="td-res">${String.fromCharCode(decA)}</td><td class="td-bin">${toBin8(decA)}</td></tr>`;
+      }
+    }
+    decTable+='</tbody></table></div>';
+    renderBits('m-dec-bits',decBytes,outBytes.slice(0,decBytes.length));
+    renderRepr('m-dec-repr',decBytes);
+    document.getElementById('m-dec-table').innerHTML=decTable;
+  } else { decSec.style.display='none'; }
+  document.getElementById('m-cards').innerHTML=`
+    <div class="info-card"><div class="ic-label">Mode</div><div class="ic-val" style="font-size:13px">${isEnc?'Encrypt':'Decrypt'}</div></div>
+    <div class="info-card"><div class="ic-label">Key k</div><div class="ic-val">${k}</div></div>
+    <div class="info-card g"><div class="ic-label">Inverse k⁻¹</div><div class="ic-val">${ki}</div><div class="ic-sub">k×k⁻¹ mod 26 = ${(k*ki)%26}</div></div>
+    <div class="info-card o"><div class="ic-label">Output</div><div class="ic-val">${outStr}</div></div>`;
+}
+
+// ── VIGENERE ───────────────────────────────────────────────────────────────
+let vigCurrentMode='enc';
+function vigMode(m){
+  vigCurrentMode=m;
+  document.getElementById('v-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('v-dec-btn').classList.toggle('active',m==='dec');
+  vigViz();
+}
+function vigViz(){
+  const pt=(document.getElementById('v-pt').value||'').toUpperCase().replace(/[^A-Z]/g,'');
+  const kw=(document.getElementById('v-key').value||'LEMON').toUpperCase().replace(/[^A-Z]/g,'');
+  if(!kw.length)return;
+  const isEnc=vigCurrentMode==='enc';
+  const inBytes=pt.split('').map(c=>c.charCodeAt(0));
+  renderBits('v-in-bits',inBytes);renderRepr('v-in-repr',inBytes);
+  const keyBytes=Array.from({length:pt.length},(_,i)=>kw.charCodeAt(i%kw.length));
+  renderBits('v-key-bits',keyBytes);renderRepr('v-key-repr',keyBytes);
+  let outBytes=[];
+  let html=`<div class="bit-stage"><div class="bit-stage-title">${isEnc?'Encryption: p + k mod 26':'Decryption: c − k mod 26'} — each letter uses different keyword shift</div>
+  <table class="bit-table"><thead><tr><th>i</th><th>Input</th><th>pos</th><th>Key[i]</th><th>k</th><th>${isEnc?'p+k':'c−k'} mod 26</th><th>Result</th><th>Result Binary</th></tr></thead><tbody>`;
+  for(let i=0;i<pt.length;i++){
+    const p=pt.charCodeAt(i)-65;const kc=kw.charCodeAt(i%kw.length)-65;
+    const e=isEnc?(p+kc)%26:((p-kc+26)%26);
+    const ea=e+65;outBytes.push(ea);
+    const inBin=toBin8(pt.charCodeAt(i));const outBin=toBin8(ea);
+    let bDiff='';for(let j=0;j<8;j++)bDiff+=inBin[j]!==outBin[j]?`<span style="color:var(--orange)">${outBin[j]}</span>`:outBin[j];
+    html+=`<tr><td class="td-dec">${i}</td><td class="td-char">${pt[i]}</td><td class="td-op">${p}</td>
+      <td class="td-res">${kw[i%kw.length]}</td><td class="td-op">${kc}</td>
+      <td class="td-op">${p}${isEnc?'+':'−'}${kc}=${isEnc?p+kc:p-kc} mod 26 = ${e}</td>
+      <td class="td-res">${String.fromCharCode(ea)}</td>
+      <td style="font-size:11px;letter-spacing:1px">${bDiff}</td></tr>`;
+  }
+  html+='</tbody></table></div>';
+  document.getElementById('v-table-wrap').innerHTML=html;
+  renderBits('v-out-bits',outBytes,inBytes);renderRepr('v-out-repr',outBytes);
+  const outStr=outBytes.map(b=>String.fromCharCode(b)).join('');
+  renderResultBanner('v-result-banner', isEnc?'Plaintext':'Ciphertext', pt, isEnc?'Ciphertext':'Plaintext', outStr, !isEnc);
+  const decSec=document.getElementById('v-dec-section');
+  if(isEnc){
+    decSec.style.display='block';
+    let decBytes=[];
+    let decTable=`<div class="bit-stage"><div class="bit-stage-title">Decryption verification: subtract keyword — c − k mod 26</div>
+    <table class="bit-table"><thead><tr><th>i</th><th>Cipher</th><th>pos</th><th>Key[i]</th><th>k</th><th>c−k mod 26</th><th>Recovered</th></tr></thead><tbody>`;
+    for(let i=0;i<outBytes.length;i++){
+      const c=outBytes[i]-65;const kc=kw.charCodeAt(i%kw.length)-65;
+      const d=((c-kc+26)%26);const da=d+65;decBytes.push(da);
+      decTable+=`<tr><td class="td-dec">${i}</td><td class="td-char">${String.fromCharCode(outBytes[i])}</td>
+        <td class="td-op">${c}</td><td class="td-res">${kw[i%kw.length]}</td><td class="td-op">${kc}</td>
+        <td class="td-op">${c}−${kc}=${c-kc} mod 26 = ${d}</td><td class="td-res">${String.fromCharCode(da)}</td></tr>`;
+    }
+    decTable+='</tbody></table></div>';
+    renderBits('v-dec-bits',decBytes,outBytes);renderRepr('v-dec-repr',decBytes);
+    document.getElementById('v-dec-table').innerHTML=decTable;
+  } else { decSec.style.display='none'; }
+}
+
+// ── PLAYFAIR ───────────────────────────────────────────────────────────────
+let pfCurrentMode='enc';
+function pfMode(m){
+  pfCurrentMode=m;
+  document.getElementById('pf-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('pf-dec-btn').classList.toggle('active',m==='dec');
+  pfViz();
+}
+function buildPF(key){
+  key=key.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+  const used=new Set();const mat=[];
+  for(const c of key+'ABCDEFGHIKLMNOPQRSTUVWXYZ'){if(!used.has(c)){used.add(c);mat.push(c);}}
+  return mat;
+}
+function pfFind(mat,c){const i=mat.indexOf(c);return[Math.floor(i/5),i%5];}
+function pfProcessPairs(pairs,mat,encrypt){
+  let result='',phtml='';
+  for(const [a,b] of pairs){
+    const [r1,c1]=pfFind(mat,a);const [r2,c2]=pfFind(mat,b);
+    let ea,eb,rule,ruleDetail;
+    if(r1===r2){
+      ea=encrypt?mat[r1*5+(c1+1)%5]:mat[r1*5+(c1+4)%5];
+      eb=encrypt?mat[r2*5+(c2+1)%5]:mat[r2*5+(c2+4)%5];
+      rule='Same Row';
+      ruleDetail=encrypt?`Shift right: col ${c1}→${(c1+1)%5}, col ${c2}→${(c2+1)%5}`:`Shift left: col ${c1}→${(c1+4)%5}, col ${c2}→${(c2+4)%5}`;
+    } else if(c1===c2){
+      ea=encrypt?mat[((r1+1)%5)*5+c1]:mat[((r1+4)%5)*5+c1];
+      eb=encrypt?mat[((r2+1)%5)*5+c2]:mat[((r2+4)%5)*5+c2];
+      rule='Same Column';
+      ruleDetail=encrypt?`Shift down: row ${r1}→${(r1+1)%5}, row ${r2}→${(r2+1)%5}`:`Shift up: row ${r1}→${(r1+4)%5}, row ${r2}→${(r2+4)%5}`;
+    } else {
+      ea=mat[r1*5+c2];eb=mat[r2*5+c1];
+      rule='Rectangle';ruleDetail=`Swap corners: (${r1},${c1})→(${r1},${c2}), (${r2},${c2})→(${r2},${c1})`;
+    }
+    result+=ea+eb;
+    const aA=a.charCodeAt(0),bA=b.charCodeAt(0),eaA=ea.charCodeAt(0),ebA=eb.charCodeAt(0);
+    phtml+=`<div class="bit-stage">
+      <div class="bit-stage-title">Pair: ${a}${b} → ${ea}${eb} &nbsp;[${rule}: ${encrypt?'encrypt':'decrypt'}]</div>
+      <div class="explain-box"><span class="eq">${ruleDetail}</span></div>
+      <table class="bit-table"><thead><tr><th></th><th>Char</th><th>ASCII</th><th>8-bit binary</th><th>Matrix pos</th></tr></thead>
+      <tbody>
+        <tr><td style="color:var(--text3)">In A</td><td class="td-char">${a}</td><td class="td-dec">${aA}</td><td class="td-bin">${toBin8(aA)}</td><td class="td-op">(${r1},${c1})</td></tr>
+        <tr><td style="color:var(--text3)">In B</td><td class="td-char">${b}</td><td class="td-dec">${bA}</td><td class="td-bin">${toBin8(bA)}</td><td class="td-op">(${r2},${c2})</td></tr>
+        <tr><td style="color:var(--green)">Out A</td><td class="td-char">${ea}</td><td class="td-dec">${eaA}</td><td class="td-bin">${toBin8(eaA)}</td><td class="td-res">(${r1},${c2})</td></tr>
+        <tr><td style="color:var(--green)">Out B</td><td class="td-char">${eb}</td><td class="td-dec">${ebA}</td><td class="td-bin">${toBin8(ebA)}</td><td class="td-res">(${r2},${c1})</td></tr>
+      </tbody></table>
+      <div class="bits-row" style="margin-top:10px">
+        ${[aA,bA].map(bv=>`<div style="margin-right:8px"><div style="font-size:10px;color:var(--text3)">in</div><div class="bits-row">${toBin8(bv).split('').map(bit=>`<div class="bit ${bit==='1'?'bit-1':'bit-0'}">${bit}</div>`).join('')}</div></div>`).join('')}
+        <div style="color:var(--text3);padding:14px 10px">→</div>
+        ${[eaA,ebA].map(bv=>`<div style="margin-right:8px"><div style="font-size:10px;color:var(--green)">out</div><div class="bits-row">${toBin8(bv).split('').map(bit=>`<div class="bit highlight">${bit}</div>`).join('')}</div></div>`).join('')}
+      </div>
+    </div>`;
+  }
+  return{result,phtml};
+}
+function pfViz(){
+  const pt=document.getElementById('pf-pt').value||'HELLO';
+  const key=document.getElementById('pf-key').value||'MONARCHY';
+  const isEnc=pfCurrentMode==='enc';
+  const mat=buildPF(key);
+  // Matrix display
+  let mhtml='<div class="bit-stage"><div class="bit-stage-title">Key matrix — hover a cell to see its ASCII bits</div><div style="overflow-x:auto"><table class="bit-table"><thead><tr>';
+  for(let c=0;c<5;c++)mhtml+=`<th>Col ${c}</th>`;
+  mhtml+='</tr></thead><tbody>';
+  for(let r=0;r<5;r++){
+    mhtml+='<tr>';
+    for(let c=0;c<5;c++){
+      const ch=mat[r*5+c];const asc=ch.charCodeAt(0);
+      mhtml+=`<td title="ASCII ${asc} = ${toBin8(asc)}" style="cursor:help"><span class="td-char">${ch}</span> <span class="td-dec">(${r},${c})</span><br><span style="font-size:10px;color:var(--text3)">${toBin8(asc)}</span></td>`;
+    }
+    mhtml+='</tr>';
+  }
+  mhtml+='</tbody></table></div></div>';
+  document.getElementById('pf-matrix-wrap').innerHTML=mhtml;
+  // Build pairs
+  let ptClean=pt.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+  const pairs=[];let i=0;
+  while(i<ptClean.length){
+    const a=ptClean[i],b=ptClean[i+1]||'X';
+    if(a===b){pairs.push([a,'X']);i++;}else{pairs.push([a,b]);i+=2;}
+  }
+  const {result:enc,phtml}=pfProcessPairs(pairs,mat,isEnc);
+  document.getElementById('pf-pairs-wrap').innerHTML=phtml;
+  // Decrypt verification
+  const decSec=document.getElementById('pf-dec-section');
+  if(isEnc){
+    decSec.style.display='block';
+    const encPairs=[];let j=0;
+    while(j<enc.length){encPairs.push([enc[j],enc[j+1]||'X']);j+=2;}
+    const {result:dec,phtml:dhtml}=pfProcessPairs(encPairs,mat,false);
+    document.getElementById('pf-dec-wrap').innerHTML=`<div class="explain-box"><span class="eq">Ciphertext:</span> <span class="val">${enc}</span> → Decrypt each pair with reversed rules → <span class="val">${dec}</span></div>`+dhtml;
+  } else { decSec.style.display='none'; }
+  renderResultBanner('pf-result-banner', isEnc?'Plaintext':'Ciphertext', ptClean, isEnc?'Ciphertext':'Decrypted', enc, !isEnc);
+  document.getElementById('pf-cards').innerHTML=`
+    <div class="info-card"><div class="ic-label">Mode</div><div class="ic-val" style="font-size:13px">${isEnc?'Encrypt':'Decrypt'}</div></div>
+    <div class="info-card"><div class="ic-label">Pairs</div><div class="ic-val">${pairs.length}</div></div>
+    <div class="info-card g"><div class="ic-label">Input</div><div class="ic-val">${ptClean}</div></div>
+    <div class="info-card o"><div class="ic-label">Output</div><div class="ic-val">${enc}</div></div>`;
+}
+
+// ── HILL ───────────────────────────────────────────────────────────────────
+let hillCurrentMode='enc';
+function hillMode(m){
+  hillCurrentMode=m;
+  document.getElementById('h-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('h-dec-btn').classList.toggle('active',m==='dec');
+  hillViz();
+}
+function hillBlockHTML(label,ch1,ch2,p1,p2,ka,kb,kc,kd,e1,e2,ec1,ec2,isEnc){
+  return`<div class="bit-stage">
+    <div class="bit-stage-title">Block: [${ch1},${ch2}] → [${ec1},${ec2}]</div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">Input vector</div>
+        <div class="matrix-viz" style="grid-template-columns:1fr">
+          <div class="mv-cell plain"><div class="mv-char">${ch1}</div><div class="mv-num">${p1}</div></div>
+          <div class="mv-cell plain"><div class="mv-char">${ch2}</div><div class="mv-num">${p2}</div></div>
+        </div></div>
+      <div style="font-size:22px;color:var(--text3)">×</div>
+      <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">${isEnc?'Key':'K⁻¹ (inverse key)'}</div>
+        <div class="matrix-viz" style="grid-template-columns:repeat(2,1fr)">
+          <div class="mv-cell key"><div class="mv-char">${ka}</div></div><div class="mv-cell key"><div class="mv-char">${kb}</div></div>
+          <div class="mv-cell key"><div class="mv-char">${kc}</div></div><div class="mv-cell key"><div class="mv-char">${kd}</div></div>
+        </div></div>
+      <div style="font-size:22px;color:var(--text3)">=</div>
+      <div style="font-size:18px;color:var(--text3)">mod 26</div>
+      <div><div style="font-size:10px;color:var(--green);margin-bottom:4px">Result</div>
+        <div class="matrix-viz" style="grid-template-columns:1fr">
+          <div class="mv-cell result"><div class="mv-char">${ec1}</div><div class="mv-num">${e1}</div></div>
+          <div class="mv-cell result"><div class="mv-char">${ec2}</div><div class="mv-num">${e2}</div></div>
+        </div></div>
+    </div>
+    <div class="explain-box" style="margin-top:10px">
+      <div><span class="eq">Row 1:</span> ${ka}×${p1} + ${kb}×${p2} = ${ka*p1+kb*p2} mod 26 = <span class="val">${e1} → ${ec1}</span></div>
+      <div><span class="eq">Row 2:</span> ${kc}×${p1} + ${kd}×${p2} = ${kc*p1+kd*p2} mod 26 = <span class="val">${e2} → ${ec2}</span></div>
+    </div>
+    <div class="bits-row">
+      ${[[ch1.charCodeAt(0),ch1],[ch2.charCodeAt(0),ch2]].map(([by,ch])=>`<div style="margin-right:10px"><div style="font-size:10px;color:var(--text3);margin-bottom:3px">in:${ch}</div><div class="bits-row">${toBin8(by).split('').map(bit=>`<div class="bit ${bit==='1'?'bit-1':'bit-0'}">${bit}</div>`).join('')}</div></div>`).join('')}
+      <div style="color:var(--text3);padding:6px 8px">→</div>
+      ${[e1+65,e2+65].map(by=>`<div style="margin-right:10px"><div style="font-size:10px;color:var(--green);margin-bottom:3px">out:${String.fromCharCode(by)}</div><div class="bits-row">${toBin8(by).split('').map(bit=>`<div class="bit highlight">${bit}</div>`).join('')}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
+function hillViz(){
+  const pt=(document.getElementById('h-pt').value||'HELP').toUpperCase().replace(/[^A-Z]/g,'');
+  const kv=(document.getElementById('h-key').value||'3,3,2,5').split(',').map(Number);
+  if(kv.length!==4){document.getElementById('hill-wrap').innerHTML='<div class="warn-box">Enter exactly 4 numbers</div>';return;}
+  const [a,b,c,d]=kv;
+  const isEnc=hillCurrentMode==='enc';
+  const det=((a*d-b*c)%26+26)%26;
+  const di=modInv(det,26);
+  if(di===-1){document.getElementById('hill-wrap').innerHTML='<div class="warn-box">Matrix not invertible mod 26 (det='+det+'). Try 3,3,2,5</div>';return;}
+  // Inverse matrix: K⁻¹ = det⁻¹ × adj(K) mod 26
+  const ia=((di*d)%26+26)%26, ib=((di*(-b+26))%26+26)%26;
+  const ic=((di*(-c+26))%26+26)%26, id=((di*a)%26+26)%26;
+  const useA=isEnc?a:ia,useB=isEnc?b:ib,useC=isEnc?c:ic,useD=isEnc?d:id;
+  let html=`<div class="bit-stage"><div class="bit-stage-title">Key matrix K and ${isEnc?'its properties':'inverse K⁻¹'}</div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+    <div><div style="font-size:10px;color:var(--text3);margin-bottom:4px">K</div>
+      <div class="matrix-viz" style="grid-template-columns:repeat(2,1fr)">
+        <div class="mv-cell key"><div class="mv-char">${a}</div></div><div class="mv-cell key"><div class="mv-char">${b}</div></div>
+        <div class="mv-cell key"><div class="mv-char">${c}</div></div><div class="mv-cell key"><div class="mv-char">${d}</div></div>
+      </div></div>
+    ${!isEnc?`<div><div style="font-size:10px;color:var(--green);margin-bottom:4px">K⁻¹ (used for decrypt)</div>
+      <div class="matrix-viz" style="grid-template-columns:repeat(2,1fr)">
+        <div class="mv-cell result"><div class="mv-char">${ia}</div></div><div class="mv-cell result"><div class="mv-char">${ib}</div></div>
+        <div class="mv-cell result"><div class="mv-char">${ic}</div></div><div class="mv-cell result"><div class="mv-char">${id}</div></div>
+      </div></div>`:''}
+    <div class="explain-box" style="flex:1;min-width:200px">
+      <div><span class="eq">det(K)</span> = ${a}×${d}−${b}×${c} = ${a*d-b*c} mod 26 = ${det}</div>
+      <div><span class="eq">det⁻¹ mod 26</span> = ${di} (verify: ${det}×${di} mod 26 = ${(det*di)%26})</div>
+      ${!isEnc?`<div><span class="eq">K⁻¹ = det⁻¹ × adj(K)</span> = ${di} × [[${d},${-b+26}],[${-c+26},${a}]] mod 26</div>`:''}
+    </div>
+  </div></div>`;
+  let padded=pt.length%2?pt+'X':pt;
+  for(let i=0;i<padded.length;i+=2){
+    const p1=padded.charCodeAt(i)-65,p2=padded.charCodeAt(i+1)-65;
+    const e1=((useA*p1+useB*p2)%26+26)%26;const e2=((useC*p1+useD*p2)%26+26)%26;
+    html+=hillBlockHTML(`Block ${i/2+1}`,padded[i],padded[i+1],p1,p2,useA,useB,useC,useD,e1,e2,String.fromCharCode(e1+65),String.fromCharCode(e2+65),isEnc);
+  }
+  document.getElementById('hill-wrap').innerHTML=html;
+  // Build full output string for banner
+  let hillOutStr='';
+  for(let i=0;i<padded.length;i+=2){const p1=padded.charCodeAt(i)-65,p2=padded.charCodeAt(i+1)-65;const e1=((useA*p1+useB*p2)%26+26)%26;const e2=((useC*p1+useD*p2)%26+26)%26;hillOutStr+=String.fromCharCode(e1+65)+String.fromCharCode(e2+65);}
+  renderResultBanner('hill-result-banner', isEnc?'Plaintext (padded)':'Ciphertext', padded, isEnc?'Ciphertext':'Decrypted', hillOutStr, !isEnc);
+  // Decryption section (shown only in encrypt mode)
+  const decSec=document.getElementById('hill-dec-section');
+  if(isEnc){
+    decSec.style.display='block';
+    let encStr='';
+    for(let i=0;i<padded.length;i+=2){
+      const p1=padded.charCodeAt(i)-65,p2=padded.charCodeAt(i+1)-65;
+      const e1=((a*p1+b*p2)%26+26)%26;const e2=((c*p1+d*p2)%26+26)%26;
+      encStr+=String.fromCharCode(e1+65)+String.fromCharCode(e2+65);
+    }
+    let decHtml=`<div class="explain-box"><span class="eq">Ciphertext: ${encStr}</span> — now apply K⁻¹ = [[${ia},${ib}],[${ic},${id}]] to each pair</div>`;
+    for(let i=0;i<encStr.length;i+=2){
+      const c1=encStr.charCodeAt(i)-65,c2=encStr.charCodeAt(i+1)-65;
+      const d1=((ia*c1+ib*c2)%26+26)%26;const d2=((ic*c1+id*c2)%26+26)%26;
+      decHtml+=hillBlockHTML(`Decrypt block ${i/2+1}`,encStr[i],encStr[i+1],c1,c2,ia,ib,ic,id,d1,d2,String.fromCharCode(d1+65),String.fromCharCode(d2+65),false);
+    }
+    document.getElementById('hill-dec-wrap').innerHTML=decHtml;
+  } else { decSec.style.display='none'; }
+}
+
+// ── DES ─────────────────────────────────────────────────────────────────────
+let desCurrentMode='enc';
+function desMode(m){
+  desCurrentMode=m;
+  document.getElementById('des-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('des-dec-btn').classList.toggle('active',m==='dec');
+  desViz();
+}
+function xorBin(a,b){return a.split('').map((bit,i)=>bit===b[i%b.length]?'0':'1').join('');}
+function desRunFeistel(ptBin,keyBin,reverse){
+  let L=ptBin.substring(0,32),R=ptBin.substring(32);
+  const rounds=[];
+  for(let r=1;r<=16;r++){
+    const rr=reverse?17-r:r;
+    const off=(rr*7)%56;
+    const subkey=(keyBin+keyBin).substring(off,off+32);
+    const fOut=xorBin(R,subkey);
+    const newR=xorBin(L,fOut);
+    const newL=R;
+    rounds.push({r,L,R,newL,newR});
+    L=newL;R=newR;
+  }
+  return{rounds,finalBin:L+R};
+}
+function desRoundsHTML(rounds,isEnc){
+  let html='';
+  for(const {r,L,R,newL,newR} of rounds){
+    const changed=newR.split('').filter((b,i)=>b!==L[i]).length;
+    html+=`<div class="feistel-round ${r<=3||r===16?'active-round':''}">
+      <div class="fr-header">
+        <div class="fr-title">${isEnc?'Encryption':'Decryption'} Round ${r} of 16 ${!isEnc?'(subkey K'+(17-r)+')':''}</div>
+        <div class="fr-status">${changed} bits changed in R</div>
+      </div>
+      <div class="fr-body">
+        <div class="fr-half"><div class="fh-title">L${r} = R${r-1}</div><div class="fh-bits">${newL.substring(0,16)}...${newL.substring(24,32)}...</div></div>
+        <div class="fr-arrow"><div style="font-size:11px;color:var(--orange)">new_L = old_R</div><div style="font-size:11px;color:var(--cyan);margin-top:4px">new_R = old_L ⊕ f(R,K${isEnc?r:17-r})</div></div>
+        <div class="fr-half"><div class="fh-title">R${r} = L${r-1} ⊕ f(R,K)</div><div class="fh-bits">${newR.substring(0,16)}...${newR.substring(24,32)}...</div></div>
+      </div>
+      ${r<=2?`<div class="explain-box" style="margin-top:8px;font-size:12px">
+        <span class="eq">f function:</span> Expand R (32→48) → XOR subkey → 8 S-boxes (6bits→4bits) → P-box → 32 bits<br>
+        <span class="note">${!isEnc?'Decryption: identical Feistel structure, subkeys applied in REVERSE order (K16→K1)':''}</span>
+      </div>`:''}
+    </div>`;
+  }
+  return html;
+}
+function desViz(){
+  const pt=(document.getElementById('des-pt').value||'SECURITY').padEnd(8,' ').substring(0,8);
+  const key=(document.getElementById('des-key').value||'MYSECRET').padEnd(8,' ').substring(0,8);
+  const isEnc=desCurrentMode==='enc';
+  const inBytes=bytesFrom(pt,8);const keyBytes=bytesFrom(key,8);
+  renderBits('des-input-bits',inBytes);renderRepr('des-input-repr',inBytes);
+  const ptBin=inBytes.map(b=>toBin8(b)).join('');
+  const keyBin=keyBytes.map(b=>toBin8(b)).join('');
+  const L0=ptBin.substring(0,32),R0=ptBin.substring(32);
+  document.getElementById('des-split').innerHTML=`<div class="bit-stage">
+    <div class="bit-stage-title">${isEnc?'After IP — split into L0|R0':'Input ciphertext — split into L0|R0 (decrypt uses reversed subkeys)'}</div>
+    <div style="margin-bottom:6px;font-size:11px;color:var(--text3)">L0 — Left 32 bits</div>
+    <div class="bits-row">${L0.split('').map(b=>`<div class="bit ${b==='1'?'bit-1':'bit-0'}">${b}</div>`).join('')}</div>
+    <div style="margin:10px 0 6px;font-size:11px;color:var(--text3)">R0 — Right 32 bits</div>
+    <div class="bits-row">${R0.split('').map(b=>`<div class="bit ${b==='1'?'bit-1':'bit-0'} highlight">${b}</div>`).join('')}</div>
+    <div class="explain-box" style="margin-top:10px"><span class="eq">64 bits</span> → IP → two <span class="val">32-bit halves</span> L0 and R0.
+    ${!isEnc?'<br><span class="note">DES decryption: same Feistel network — just apply subkeys in reverse order K16→K1</span>':''}</div>
+  </div>`;
+  const {rounds,finalBin}=desRunFeistel(ptBin,keyBin,!isEnc);
+  document.getElementById('des-rounds').innerHTML=desRoundsHTML(rounds,isEnc);
+  const outBytes=[];for(let i=0;i<64;i+=8)outBytes.push(parseInt(finalBin.substr(i,8),2));
+  renderBits('des-output-bits',outBytes,inBytes);renderRepr('des-output-repr',outBytes);
+  const desOutHex=outBytes.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+  const desInTxt=pt.trim();
+  renderResultBanner('des-result-banner', isEnc?'Plaintext':'Ciphertext (input)', isEnc?desInTxt:desOutHex, isEnc?'Ciphertext (hex)':'Recovered Text', isEnc?desOutHex:pt.trim(), !isEnc);
+  // Decrypt verification
+  const decSec=document.getElementById('des-dec-section');
+  if(isEnc){
+    decSec.style.display='block';
+    const {rounds:decRounds,finalBin:decBin}=desRunFeistel(finalBin,keyBin,true);
+    document.getElementById('des-dec-rounds').innerHTML=desRoundsHTML(decRounds,false);
+    const decBytes=[];for(let i=0;i<64;i+=8)decBytes.push(parseInt(decBin.substr(i,8),2));
+    renderBits('des-dec-bits',decBytes,outBytes);renderRepr('des-dec-repr',decBytes);
+  } else { decSec.style.display='none'; }
+}
+
+// ── AES ────────────────────────────────────────────────────────────────────
+const SBOX=[0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,0xca,0x82,0xc9,0x7d,0xfa,0x59,0x47,0xf0,0xad,0xd4,0xa2,0xaf,0x9c,0xa4,0x72,0xc0,0xb7,0xfd,0x93,0x26,0x36,0x3f,0xf7,0xcc,0x34,0xa5,0xe5,0xf1,0x71,0xd8,0x31,0x15,0x04,0xc7,0x23,0xc3,0x18,0x96,0x05,0x9a,0x07,0x12,0x80,0xe2,0xeb,0x27,0xb2,0x75,0x09,0x83,0x2c,0x1a,0x1b,0x6e,0x5a,0xa0,0x52,0x3b,0xd6,0xb3,0x29,0xe3,0x2f,0x84,0x53,0xd1,0x00,0xed,0x20,0xfc,0xb1,0x5b,0x6a,0xcb,0xbe,0x39,0x4a,0x4c,0x58,0xcf,0xd0,0xef,0xaa,0xfb,0x43,0x4d,0x33,0x85,0x45,0xf9,0x02,0x7f,0x50,0x3c,0x9f,0xa8,0x51,0xa3,0x40,0x8f,0x92,0x9d,0x38,0xf5,0xbc,0xb6,0xda,0x21,0x10,0xff,0xf3,0xd2,0xcd,0x0c,0x13,0xec,0x5f,0x97,0x44,0x17,0xc4,0xa7,0x7e,0x3d,0x64,0x5d,0x19,0x73,0x60,0x81,0x4f,0xdc,0x22,0x2a,0x90,0x88,0x46,0xee,0xb8,0x14,0xde,0x5e,0x0b,0xdb,0xe0,0x32,0x3a,0x0a,0x49,0x06,0x24,0x5c,0xc2,0xd3,0xac,0x62,0x91,0x95,0xe4,0x79,0xe7,0xc8,0x37,0x6d,0x8d,0xd5,0x4e,0xa9,0x6c,0x56,0xf4,0xea,0x65,0x7a,0xae,0x08,0xba,0x78,0x25,0x2e,0x1c,0xa6,0xb4,0xc6,0xe8,0xdd,0x74,0x1f,0x4b,0xbd,0x8b,0x8a,0x70,0x3e,0xb5,0x66,0x48,0x03,0xf6,0x0e,0x61,0x35,0x57,0xb9,0x86,0xc1,0x1d,0x9e,0xe1,0xf8,0x98,0x11,0x69,0xd9,0x8e,0x94,0x9b,0x1e,0x87,0xe9,0xce,0x55,0x28,0xdf,0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16];
+const INV_SBOX=new Array(256);SBOX.forEach((v,i)=>{INV_SBOX[v]=i;});
+const RCON=[0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36];
+function xtime(a){return((a<<1)^(a&0x80?0x1b:0))&0xff;}
+function gfMul(a,b){let r=0;for(let i=0;i<8;i++){if(b&1)r^=a;a=xtime(a);b>>=1;}return r;}
+function aesKeyExp(key){
+  const w=[];for(let i=0;i<4;i++)w.push([key[4*i],key[4*i+1],key[4*i+2],key[4*i+3]]);
+  for(let i=4;i<44;i++){
+    let t=[...w[i-1]];
+    if(i%4===0){t=[t[1],t[2],t[3],t[0]].map(b=>SBOX[b]);t[0]^=RCON[i/4-1];}
+    w.push(w[i-4].map((b,j)=>b^t[j]));
+  }
+  return w;
+}
+function aesARK(s,rk){return s.map((b,i)=>b^rk[Math.floor(i/4)][i%4]);}
+function aesSB(s){return s.map(b=>SBOX[b]);}
+function aesInvSB(s){return s.map(b=>INV_SBOX[b]);}
+function aesSR(s){const r=[...s];[r[1],r[5],r[9],r[13]]=[s[5],s[9],s[13],s[1]];[r[2],r[6],r[10],r[14]]=[s[10],s[14],s[2],s[6]];[r[3],r[7],r[11],r[15]]=[s[15],s[3],s[7],s[11]];return r;}
+function aesInvSR(s){const r=[...s];[r[1],r[5],r[9],r[13]]=[s[13],s[1],s[5],s[9]];[r[2],r[6],r[10],r[14]]=[s[10],s[14],s[2],s[6]];[r[3],r[7],r[11],r[15]]=[s[7],s[11],s[15],s[3]];return r;}
+function aesMC(s){const r=[...s];for(let c=0;c<4;c++){const i=c*4;const[s0,s1,s2,s3]=[s[i],s[i+1],s[i+2],s[i+3]];r[i]=gfMul(2,s0)^gfMul(3,s1)^s2^s3;r[i+1]=s0^gfMul(2,s1)^gfMul(3,s2)^s3;r[i+2]=s0^s1^gfMul(2,s2)^gfMul(3,s3);r[i+3]=gfMul(3,s0)^s1^s2^gfMul(2,s3);}return r;}
+function aesInvMC(s){const r=[...s];for(let c=0;c<4;c++){const i=c*4;const[s0,s1,s2,s3]=[s[i],s[i+1],s[i+2],s[i+3]];r[i]=gfMul(0xe,s0)^gfMul(0xb,s1)^gfMul(0xd,s2)^gfMul(0x9,s3);r[i+1]=gfMul(0x9,s0)^gfMul(0xe,s1)^gfMul(0xb,s2)^gfMul(0xd,s3);r[i+2]=gfMul(0xd,s0)^gfMul(0x9,s1)^gfMul(0xe,s2)^gfMul(0xb,s3);r[i+3]=gfMul(0xb,s0)^gfMul(0xd,s1)^gfMul(0x9,s2)^gfMul(0xe,s3);}return r;}
+
+let aesSteps=[];let aesCurrentStep=0;let aesCurrentMode='enc';
+function aesMode(m){
+  aesCurrentMode=m;
+  document.getElementById('aes-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('aes-dec-btn').classList.toggle('active',m==='dec');
+  aesViz();
+}
+function aesViz(){
+  const pt=(document.getElementById('aes-pt').value||'MYSECRETMESSAGE!').padEnd(16,' ').substring(0,16);
+  const key=(document.getElementById('aes-key').value||'THISIS128BITKEY!').padEnd(16,' ').substring(0,16);
+  const isEnc=aesCurrentMode==='enc';
+  let state=pt.split('').map(c=>c.charCodeAt(0));
+  const kBytes=key.split('').map(c=>c.charCodeAt(0));
+  const rks=aesKeyExp(kBytes);
+  aesSteps=[];
+  if(isEnc){
+    aesSteps.push({label:'Initial',sub:'Plaintext → 4×4 state matrix',state:[...state],cls:'initial',desc:'Your 16 chars stored column-by-column in a 4×4 matrix. Each cell = 1 byte = 8 bits.'});
+    state=aesARK(state,rks.slice(0,4));
+    aesSteps.push({label:'AddRoundKey 0',sub:'XOR with original key',state:[...state],cls:'after-key',desc:'Every byte XORed with corresponding key byte. Bit-by-bit: same bits→0, different bits→1.'});
+    for(let r=1;r<=10;r++){
+      state=aesSB(state);aesSteps.push({label:`R${r} SubBytes`,sub:'S-box lookup',state:[...state],cls:'after-sub',desc:`Each byte substituted using 256-entry S-box (GF(2⁸) multiplicative inverse + affine transform). Provides non-linearity.`});
+      state=aesSR(state);aesSteps.push({label:`R${r} ShiftRows`,sub:'Cyclic row shifts',state:[...state],cls:'after-shift',desc:'Row 0: no shift. Row 1: left 1. Row 2: left 2. Row 3: left 3. Spreads bytes across columns for diffusion.'});
+      if(r<10){state=aesMC(state);aesSteps.push({label:`R${r} MixCols`,sub:'GF(2⁸) column mix',state:[...state],cls:'after-mix',desc:'Each 4-byte column multiplied by [2,3,1,1;1,2,3,1;1,1,2,3;3,1,1,2] in GF(2⁸). One bit change cascades to all 4 bytes.'});}
+      state=aesARK(state,rks.slice(r*4,(r+1)*4));aesSteps.push({label:`R${r} AddRoundKey`,sub:`XOR round key ${r}`,state:[...state],cls:'after-key',desc:`XOR with round ${r} subkey derived via key schedule.${r===10?' FINAL round — ciphertext!':''}`});
+    }
+  } else {
+    // Decryption: AddRoundKey(R10) → loop R10→1: InvSR → InvSB → AddRoundKey → InvMC
+    aesSteps.push({label:'Initial',sub:'Ciphertext → 4×4 state matrix',state:[...state],cls:'initial',desc:'Input ciphertext bytes arranged into 4×4 state matrix column-by-column.'});
+    state=aesARK(state,rks.slice(40,44));
+    aesSteps.push({label:'AddRoundKey 10',sub:'XOR with round key 10 (first step)',state:[...state],cls:'after-key',desc:'Decryption starts by undoing the last encryption step — XOR with round key 10.'});
+    for(let r=10;r>=1;r--){
+      state=aesInvSR(state);aesSteps.push({label:`R${r} InvShiftRows`,sub:'Reverse cyclic shifts',state:[...state],cls:'after-shift',desc:'Row 0: no shift. Row 1: right 1. Row 2: right 2. Row 3: right 3. Inverse of ShiftRows.'});
+      state=aesInvSB(state);aesSteps.push({label:`R${r} InvSubBytes`,sub:'Inverse S-box lookup',state:[...state],cls:'after-sub',desc:'Each byte looked up in the inverse S-box (pre-computed inverse of the forward S-box table).'});
+      state=aesARK(state,rks.slice((r-1)*4,r*4));aesSteps.push({label:`R${r} AddRoundKey`,sub:`XOR round key ${r-1}`,state:[...state],cls:'after-key',desc:`XOR with round key ${r-1}. AddRoundKey is its own inverse (XOR twice = identity).`});
+      if(r>1){state=aesInvMC(state);aesSteps.push({label:`R${r} InvMixCols`,sub:'Inverse GF(2⁸) mix',state:[...state],cls:'after-mix',desc:'Each column multiplied by the inverse MixColumns matrix [14,11,13,9;9,14,11,13;13,9,14,11;11,13,9,14].'});}
+    }
+  }
+  aesCurrentStep=0;renderAesNav();renderAesStep();
+  const aesInStr=pt; const aesFinalState=aesSteps[aesSteps.length-1].state;
+  const aesOutHex=aesFinalState.map(toHex2).join('');
+  const aesOutReadable=aesFinalState.map(b=>(b>=32&&b<127?String.fromCharCode(b):'·')).join('');
+  renderResultBanner('aes-result-banner',
+    isEnc?'Plaintext':'Ciphertext (hex)',
+    isEnc?aesInStr:pt.split('').map(c=>c.charCodeAt(0).toString(16).padStart(2,'0').toUpperCase()).join(''),
+    isEnc?'Ciphertext (hex)':'Decrypted text',
+    isEnc?aesOutHex:aesOutReadable,
+    !isEnc);
+}
+function renderAesNav(){
+  const nav=document.getElementById('aes-step-nav');
+  nav.innerHTML=aesSteps.map((s,i)=>`<button class="step-btn ${i===aesCurrentStep?'active':''}" onclick="aesGoStep(${i})">${s.label}</button>`).join('');
+}
+function aesGoStep(i){aesCurrentStep=i;renderAesNav();renderAesStep();}
+function renderAesStep(){
+  const s=aesSteps[aesCurrentStep];
+  const prev=aesCurrentStep>0?aesSteps[aesCurrentStep-1].state:null;
+  const cls=s.cls;
+  let html=`<div class="bit-stage">
+    <div class="bit-stage-title">${s.label}: ${s.sub}</div>
+    <div class="explain-box">${s.desc}</div>
+    <div style="overflow-x:auto"><div class="aes-state">`;
+  for(let row=0;row<4;row++){
+    for(let col=0;col<4;col++){
+      const idx=col*4+row;const byte=s.state[idx];
+      const changed=prev&&byte!==prev[idx];
+      const ch=byte>=32&&byte<127?String.fromCharCode(byte):'·';
+      html+=`<div class="aes-cell ${cls}" style="${changed?'border-color:var(--orange);background:rgba(255,140,0,0.15)':''}" title="byte[${row}][${col}]: ${toHex2(byte)} = ${toBin8(byte)}">
+        <div class="ac-hex" style="color:${changed?'var(--orange)':'inherit'}">${toHex2(byte)}</div>
+        <div class="ac-char">${ch}</div></div>`;
+    }
+  }
+  html+='</div></div>';
+  if(prev){
+    const changed=s.state.map((b,i)=>({i,b,pb:prev[i],ch:b!==prev[i]})).filter(x=>x.ch);
+    if(changed.length>0&&changed.length<=16){
+      html+=`<div class="sec-div" style="margin-top:12px">Changed bytes (${changed.length}/16)</div>
+      <table class="bit-table"><thead><tr><th>Position</th><th>Before hex</th><th>Before binary</th><th>After hex</th><th>After binary (changed bits in orange)</th></tr></thead><tbody>`;
+      for(const{i,b,pb}of changed.slice(0,8)){
+        const ib=toBin8(pb),ob=toBin8(b);
+        let diff='';for(let j=0;j<8;j++)diff+=ib[j]!==ob[j]?`<span style="color:var(--orange);font-weight:600">${ob[j]}</span>`:ob[j];
+        html+=`<tr><td class="td-dec">byte[${Math.floor(i/4)}][${i%4}]</td><td class="td-hex">${toHex2(pb)}</td><td class="td-bin">${ib}</td><td class="td-hex">${toHex2(b)}</td><td style="letter-spacing:2px;font-size:11px">${diff}</td></tr>`;
+      }
+      if(changed.length>8)html+=`<tr><td colspan="5" style="color:var(--text3);font-size:11px">...and ${changed.length-8} more</td></tr>`;
+      html+='</tbody></table>';
+    }
+  }
+  html+=`<div class="cards-grid" style="margin-top:14px">
+    <div class="info-card"><div class="ic-label">Step</div><div class="ic-val">${aesCurrentStep+1}/${aesSteps.length}</div></div>
+    <div class="info-card o"><div class="ic-label">Changed bytes</div><div class="ic-val">${prev?s.state.filter((b,i)=>b!==prev[i]).length:0}</div></div>
+    <div class="info-card g"><div class="ic-label">Mode</div><div class="ic-val" style="font-size:12px">${aesCurrentMode==='enc'?'Encrypt':'Decrypt'}</div></div>
+    <div class="info-card"><div class="ic-label">State hex</div><div class="ic-val" style="font-size:10px">${s.state.map(toHex2).join('')}</div></div>
+  </div></div>`;
+  document.getElementById('aes-step-display').innerHTML=html;
+}
+
+// ── RSA ─────────────────────────────────────────────────────────────────────
+let rsaCurrentMode='enc';
+function rsaMode(m){
+  rsaCurrentMode=m;
+  document.getElementById('rsa-enc-btn').classList.toggle('active',m==='enc');
+  document.getElementById('rsa-dec-btn').classList.toggle('active',m==='dec');
+  const ml=document.querySelector('label[for="rsa-m"]')||document.querySelectorAll('#rsa-m')[0]?.previousElementSibling;
+  rsaViz();
+}
+function rsaViz(){
+  const p=parseInt(document.getElementById('rsa-p').value)||61;
+  const q=parseInt(document.getElementById('rsa-q').value)||53;
+  const e=parseInt(document.getElementById('rsa-e').value)||17;
+  const M=parseInt(document.getElementById('rsa-m').value)||65;
+  const isEnc=rsaCurrentMode==='enc';
+  let html='';
+  if(!isPrime(p)){html+='<div class="warn-box">p='+p+' is not prime</div>';}
+  if(!isPrime(q)){html+='<div class="warn-box">q='+q+' is not prime</div>';}
+  const n=p*q;const phi=(p-1)*(q-1);
+  const rsaStep=(num,expr,ev,res,note,color='')=>`
+    <div class="rsa-step done">
+      <div class="rs-num">${num}</div>
+      <div class="rs-expr" style="${color?'color:'+color:''}">${expr}</div>
+      <div class="rs-eval">${ev}</div>
+      <div class="rs-result" style="${color?'color:'+color:''}">${res}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${note}</div>
+    </div>`;
+  // Key generation (shown always)
+  html+=`<div class="sec-div">Key Generation</div>`;
+  html+=rsaStep('Step 1','n = p × q',`${p} × ${q}`,n,'Public modulus. Hard to factor back into p and q for large n.');
+  html+=rsaStep('Step 2','φ(n) = (p−1)(q−1)',`${p-1} × ${q-1}`,phi,'Euler totient — kept PRIVATE. Never share this!','var(--pink)');
+  if(gcd(e,phi)!==1){html+='<div class="warn-box">gcd(e,φ(n)) ≠ 1. Choose a different e.</div>';document.getElementById('rsa-wrap').innerHTML=html;return;}
+  const d=modInv(e,phi);
+  html+=rsaStep('Step 3','gcd(e, φ(n))',`gcd(${e}, ${phi})`,gcd(e,phi),'Must equal 1. e and φ(n) must be coprime.');
+  html+=rsaStep('Step 4','Public key (e, n)',`e=${e}, n=${n}`,'Share openly','Anyone uses this to encrypt messages to you.','var(--cyan)');
+  html+=rsaStep('Step 5','d = e⁻¹ mod φ(n)',`${e}⁻¹ mod ${phi}`,d,`Private key. Verify: ${e}×${d} mod ${phi} = ${(e*d)%phi}. NEVER share!`,'var(--pink)');
+  if(M>=n){html+='<div class="warn-box">M must be less than n='+n+'</div>';document.getElementById('rsa-wrap').innerHTML=html;return;}
+  const C=modPow(M,e,n);
+  const dec=modPow(C,d,n);
+  if(isEnc){
+    html+=`<div class="sec-div">Encryption — using PUBLIC key (e=${e}, n=${n})</div>`;
+    html+=rsaStep('Step 6','C = M^e mod n',`${M}^${e} mod ${n}`,C,`Ciphertext. Anyone with public key (${e},${n}) computes this.`,'var(--orange)');
+    const mBits=M.toString(2).padStart(16,'0');const cBits=C.toString(2).padStart(16,'0');
+    html+=`<div class="bit-stage" style="margin:12px 0"><div class="bit-stage-title">Bit view: M=${M} → C=${C}</div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Plaintext M = ${M}</div>
+    <div class="bits-row">${mBits.split('').map(b=>`<div class="bit ${b==='1'?'bit-1':'bit-0'}">${b}</div>`).join('')}</div>
+    <div style="font-size:11px;color:var(--orange);margin:8px 0">Ciphertext C = ${C} (after M^${e} mod ${n})</div>
+    <div class="bits-row">${cBits.split('').map((b,i)=>{const changed=mBits[i]!==undefined&&mBits[i]!==b;return`<div class="bit ${changed?'changed':b==='1'?'bit-1':'bit-0'}">${b}</div>`}).join('')}</div>
+    <div class="explain-box" style="margin-top:10px">Every bit of M gets scrambled through modular exponentiation. <span class="val">${cBits.split('').filter((b,i)=>b!==mBits[i]).length} of ${cBits.length} bits</span> changed.</div>
+    </div>`;
+    html+=`<div class="sec-div">Decryption — using PRIVATE key (d=${d}, n=${n})</div>`;
+    html+=rsaStep('Step 7','M = C^d mod n',`${C}^${d} mod ${n}`,dec,`Recovered: ${dec} ${dec===M?'✓ matches original M='+M:'✗ mismatch!'}`,dec===M?'var(--green)':'var(--red)');
+    const decBits=dec.toString(2).padStart(16,'0');
+    html+=`<div class="bit-stage"><div class="bit-stage-title">Decrypted bits — back to original M</div>
+    <div class="bits-row">${decBits.split('').map(b=>`<div class="bit highlight">${b}</div>`).join('')}</div>
+    <div style="font-size:12px;color:var(--green);margin-top:8px">Decrypted value = ${dec} ${dec===M?'= original M ✓':''}</div></div>`;
+  } else {
+    html+=`<div class="sec-div">Decryption — using PRIVATE key (d=${d}, n=${n})</div>`;
+    html+=`<div class="explain-box"><span class="eq">Input ciphertext C:</span> Enter the ciphertext below. We'll use C = ${C} (encrypted from M=${M} with public key).</div>`;
+    html+=rsaStep('Decrypt','M = C^d mod n',`${C}^${d} mod ${n}`,dec,`Decrypted plaintext. Only the private key holder can compute this.`,'var(--green)');
+    const cBits=C.toString(2).padStart(16,'0');const decBits=dec.toString(2).padStart(16,'0');
+    html+=`<div class="bit-stage"><div class="bit-stage-title">Bit view: C=${C} → M=${dec}</div>
+    <div style="font-size:11px;color:var(--orange);margin-bottom:6px">Ciphertext C = ${C}</div>
+    <div class="bits-row">${cBits.split('').map(b=>`<div class="bit ${b==='1'?'bit-1':'bit-0'}">${b}</div>`).join('')}</div>
+    <div style="font-size:11px;color:var(--green);margin:8px 0">Decrypted M = ${dec}</div>
+    <div class="bits-row">${decBits.split('').map((b,i)=>{const changed=cBits[i]!==undefined&&cBits[i]!==b;return`<div class="bit ${changed?'changed highlight':'highlight'}">${b}</div>`}).join('')}</div></div>`;
+  }
+  document.getElementById('rsa-wrap').innerHTML=html;
+}
+
+// ── DIFFIE-HELLMAN ─────────────────────────────────────────────────────────
+function dhViz(){
+  const p=parseInt(document.getElementById('dh-p').value)||23;
+  const g=parseInt(document.getElementById('dh-g').value)||5;
+  const a=parseInt(document.getElementById('dh-a').value)||6;
+  const b=parseInt(document.getElementById('dh-b').value)||15;
+  const A=modPow(g,a,p);const B=modPow(g,b,p);
+  const sA=modPow(B,a,p);const sB=modPow(A,b,p);
+  const aBits=a.toString(2).padStart(8,'0');
+  const bBits=b.toString(2).padStart(8,'0');
+  const ABits=A.toString(2).padStart(8,'0');
+  const BBits=B.toString(2).padStart(8,'0');
+  const sBits=sA.toString(2).padStart(8,'0');
+  let html=`
+  <div class="dh-parties">
+    <div class="dh-party alice">
+      <div class="dp-name">Alice</div>
+      <div class="dh-line private"><span class="dl">private a =</span><span class="dv">${a} = ${aBits}</span></div>
+      <div class="dh-line pub"><span class="dl">computes A = g^a mod p</span><span class="dv">${g}^${a} mod ${p}</span></div>
+      <div class="dh-line pub"><span class="dl">public A =</span><span class="dv">${A} = ${ABits}</span></div>
+      <div class="dh-line shared"><span class="dl">shared = B^a mod p</span><span class="dv">${sA}</span></div>
+    </div>
+    <div class="dh-channel">
+      <div class="dh-send">Public channel<br>p=${p}, g=${g}<br><span class="ds-val">A=${A} →</span></div>
+      <div class="dh-arrow2">⇄</div>
+      <div class="dh-send"><span class="ds-val">← B=${B}</span></div>
+      <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:8px">Eavesdropper sees<br>p,g,A,B only</div>
+    </div>
+    <div class="dh-party bob">
+      <div class="dp-name">Bob</div>
+      <div class="dh-line private"><span class="dl">private b =</span><span class="dv">${b} = ${bBits}</span></div>
+      <div class="dh-line pub"><span class="dl">computes B = g^b mod p</span><span class="dv">${g}^${b} mod ${p}</span></div>
+      <div class="dh-line pub"><span class="dl">public B =</span><span class="dv">${B} = ${BBits}</span></div>
+      <div class="dh-line shared"><span class="dl">shared = A^b mod p</span><span class="dv">${sB}</span></div>
+    </div>
+  </div>
+  <div class="bit-stage"><div class="bit-stage-title">Bit-level trace of the shared secret derivation</div>
+    <table class="bit-table"><thead><tr><th>Value</th><th>Formula</th><th>Decimal</th><th>Binary</th></tr></thead><tbody>
+      <tr><td class="td-char">a</td><td class="td-op">Alice private</td><td class="td-dec">${a}</td><td class="td-bin">${aBits}</td></tr>
+      <tr><td class="td-char">b</td><td class="td-op">Bob private</td><td class="td-dec">${b}</td><td class="td-bin">${bBits}</td></tr>
+      <tr><td class="td-char">A</td><td class="td-op">g^a mod p = ${g}^${a} mod ${p}</td><td class="td-dec">${A}</td><td class="td-bin">${ABits}</td></tr>
+      <tr><td class="td-char">B</td><td class="td-op">g^b mod p = ${g}^${b} mod ${p}</td><td class="td-dec">${B}</td><td class="td-bin">${BBits}</td></tr>
+      <tr><td style="color:var(--green)">S(A)</td><td class="td-op">B^a mod p = ${B}^${a} mod ${p}</td><td class="td-dec">${sA}</td><td class="td-bin">${sBits}</td></tr>
+      <tr><td style="color:var(--green)">S(B)</td><td class="td-op">A^b mod p = ${A}^${b} mod ${p}</td><td class="td-dec">${sB}</td><td class="td-bin">${sB.toString(2).padStart(8,'0')}</td></tr>
+    </tbody></table>
+    <div class="bits-row" style="margin-top:12px">
+      ${sBits.split('').map(b=>`<div class="bit highlight">${b}</div>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px">Shared secret = ${sA}. Both parties computed the same value. ${sA===sB?'✓':'✗'}</div>
+  </div>
+  <div class="explain-box"><span class="eq">Why can't Eve compute the secret?</span><br>
+  Eve knows: p=${p}, g=${g}, A=${A}, B=${B}.<br>
+  To find a from A=g^a mod p: need to solve <span class="val">Discrete Logarithm Problem</span>. For large p (2048-bit), this is computationally infeasible.<br>
+  <span class="note">Even though A and B are public, the combination B^a = A^b can only be computed by Alice or Bob who know their private exponents.</span></div>`;
+  document.getElementById('dh-wrap').innerHTML=html;
+}
+
+// ── ELGAMAL ────────────────────────────────────────────────────────────────
+function egViz(){
+  const p=parseInt(document.getElementById('eg-p').value)||23;
+  const g=parseInt(document.getElementById('eg-g').value)||5;
+  const x=parseInt(document.getElementById('eg-x').value)||6;
+  const M=parseInt(document.getElementById('eg-m').value)||12;
+  const k=parseInt(document.getElementById('eg-k').value)||3;
+  if(M>=p){document.getElementById('eg-wrap').innerHTML='<div class="warn-box">M must be < p</div>';return;}
+  const y=modPow(g,x,p);
+  const C1=modPow(g,k,p);
+  const yk=modPow(y,k,p);
+  const C2=(M*yk)%p;
+  const C1x=modPow(C1,x,p);
+  const C1xInv=modInv(C1x,p);
+  const dec=(C2*C1xInv)%p;
+  const mBits=M.toString(2).padStart(8,'0');
+  const c2Bits=C2.toString(2).padStart(8,'0');
+  const decBits=dec.toString(2).padStart(8,'0');
+  let html=`
+  <div class="bit-stage"><div class="bit-stage-title">ElGamal step-by-step with bit values</div>
+  <table class="bit-table"><thead><tr><th>Step</th><th>Formula</th><th>Computation</th><th>Result</th><th>Binary</th></tr></thead><tbody>
+    <tr><td class="td-op">Key Gen</td><td>y = g^x mod p</td><td>${g}^${x} mod ${p}</td><td class="td-char">${y}</td><td class="td-bin">${y.toString(2).padStart(8,'0')}</td></tr>
+    <tr><td class="td-op">Encrypt</td><td>C1 = g^k mod p</td><td>${g}^${k} mod ${p}</td><td class="td-char">${C1}</td><td class="td-bin">${C1.toString(2).padStart(8,'0')}</td></tr>
+    <tr><td class="td-op">Encrypt</td><td>y^k mod p</td><td>${y}^${k} mod ${p}</td><td class="td-char">${yk}</td><td class="td-bin">${yk.toString(2).padStart(8,'0')}</td></tr>
+    <tr><td class="td-op">Encrypt</td><td>C2 = M × y^k mod p</td><td>${M} × ${yk} mod ${p}</td><td class="td-char">${C2}</td><td class="td-bin">${c2Bits}</td></tr>
+    <tr><td class="td-op">Decrypt</td><td>C1^x mod p</td><td>${C1}^${x} mod ${p}</td><td class="td-char">${C1x}</td><td class="td-bin">${C1x.toString(2).padStart(8,'0')}</td></tr>
+    <tr><td class="td-op">Decrypt</td><td>(C1^x)⁻¹ mod p</td><td>modInverse(${C1x}, ${p})</td><td class="td-char">${C1xInv}</td><td class="td-bin">${C1xInv.toString(2).padStart(8,'0')}</td></tr>
+    <tr><td style="color:var(--green)">Decrypt</td><td>M = C2 × (C1^x)⁻¹ mod p</td><td>${C2} × ${C1xInv} mod ${p}</td><td class="td-res">${dec}</td><td class="td-bin">${decBits}</td></tr>
+  </tbody></table></div>
+  <div class="bit-stage"><div class="bit-stage-title">Bit transformation: M → C2 → decrypted M</div>
+    <div style="margin-bottom:6px;font-size:11px;color:var(--cyan)">Original M = ${M}</div>
+    <div class="bits-row">${mBits.split('').map(b=>`<div class="bit ${b==='1'?'bit-1':'bit-0'}">${b}</div>`).join('')}</div>
+    <div style="margin:8px 0;font-size:11px;color:var(--orange)">Ciphertext C2 = ${C2} (M × y^k blends message with key)</div>
+    <div class="bits-row">${c2Bits.split('').map((b,i)=>{const cls=mBits[i]!==b?'changed':b==='1'?'bit-1':'bit-0';return`<div class="bit ${cls}">${b}</div>`}).join('')}</div>
+    <div style="margin:8px 0;font-size:11px;color:var(--green)">Decrypted = ${dec} ${dec===M?'✓ matches original':'✗'}</div>
+    <div class="bits-row">${decBits.split('').map(b=>`<div class="bit highlight">${b}</div>`).join('')}</div>
+  </div>
+  <div class="cards-grid">
+    <div class="info-card"><div class="ic-label">Public key (y,g,p)</div><div class="ic-val" style="font-size:12px">(${y},${g},${p})</div></div>
+    <div class="info-card p"><div class="ic-label">Ciphertext pair</div><div class="ic-val" style="font-size:12px">(C1=${C1},C2=${C2})</div></div>
+    <div class="info-card g"><div class="ic-label">Decrypted</div><div class="ic-val">${dec}</div></div>
+    <div class="info-card o"><div class="ic-label">Match?</div><div class="ic-val">${dec===M?'✓ YES':'✗ NO'}</div></div>
+  </div>`;
+  document.getElementById('eg-wrap').innerHTML=html;
+}
+
+// ── ECC ─────────────────────────────────────────────────────────────────────
+function eccModInv(a,m){a=((a%m)+m)%m;for(let x=1;x<m;x++)if((a*x)%m===1)return x;return -1;}
+function eccAdd(P,Q,a,p){
+  if(!P)return Q;if(!Q)return P;
+  if(P[0]===Q[0]&&P[1]!==Q[1])return null;
+  let lam;
+  if(P[0]===Q[0]&&P[1]===Q[1]){
+    const num=((3*P[0]*P[0]+a)%p+p)%p;
+    const den=eccModInv((2*P[1])%p,p);
+    if(den===-1)return null;lam=(num*den)%p;
+  }else{
+    const num=((Q[1]-P[1])%p+p)%p;
+    const den=eccModInv(((Q[0]-P[0])%p+p)%p,p);
+    if(den===-1)return null;lam=(num*den)%p;
+  }
+  const x3=((lam*lam-P[0]-Q[0])%p+p)%p;
+  const y3=((lam*(P[0]-x3)-P[1])%p+p)%p;
+  return[x3,y3];
+}
+function eccMul(k,G,a,p){
+  const trace=[G];let R=null,Q=[...G];
+  for(let i=k;i>0;i>>=1){if(i&1){R=eccAdd(R,Q,a,p);if(R)trace.push([...R]);}Q=eccAdd(Q,Q,a,p);}
+  return{result:R,trace};
+}
+function eccViz(){
+  const a=parseInt(document.getElementById('ecc-a').value)||2;
+  const b=parseInt(document.getElementById('ecc-b').value)||2;
+  const p=parseInt(document.getElementById('ecc-p').value)||17;
+  const gv=(document.getElementById('ecc-g').value||'5,1').split(',').map(Number);
+  const ka=parseInt(document.getElementById('ecc-ka').value)||2;
+  const kb=parseInt(document.getElementById('ecc-kb').value)||3;
+  const G=[gv[0],gv[1]];
+  const disc=(4*a**3+27*b**2)%p;
+  if(disc===0){document.getElementById('ecc-wrap').innerHTML='<div class="warn-box">Singular curve</div>';return;}
+  const vG=((G[1]**2)%p-((G[0]**3+a*G[0]+b)%p)+p)%p;
+  if(vG!==0){document.getElementById('ecc-wrap').innerHTML=`<div class="warn-box">G=(${G}) not on curve</div>`;return;}
+  const{result:Pa,trace:tA}=eccMul(ka,G,a,p);
+  const{result:Pb,trace:tB}=eccMul(kb,G,a,p);
+  const{result:Sa}=eccMul(ka,Pb||G,a,p);
+  const{result:Sb}=eccMul(kb,Pa||G,a,p);
+  // Find all curve points
+  const allPts=[];
+  for(let x=0;x<p;x++){
+    const rhs=((x**3+a*x+b)%p+p)%p;
+    for(let y=0;y<p;y++)if((y*y)%p===rhs)allPts.push([x,y]);
+  }
+  let html=`<div class="bit-stage"><div class="bit-stage-title">ECC step-by-step — curve y² ≡ x³ + ${a}x + ${b} (mod ${p})</div>
+  <div class="cards-grid">
+    <div class="info-card"><div class="ic-label">Curve points</div><div class="ic-val">${allPts.length}</div><div class="ic-sub">Valid (x,y) pairs on curve</div></div>
+    <div class="info-card g"><div class="ic-label">Pa = ${ka}G</div><div class="ic-val">${Pa?`(${Pa[0]},${Pa[1]})`:'∞'}</div><div class="ic-sub">Alice public</div></div>
+    <div class="info-card o"><div class="ic-label">Pb = ${kb}G</div><div class="ic-val">${Pb?`(${Pb[0]},${Pb[1]})`:'∞'}</div><div class="ic-sub">Bob public</div></div>
+    <div class="info-card p"><div class="ic-label">Shared S</div><div class="ic-val">${Sa?`(${Sa[0]},${Sa[1]})`:'∞'}</div><div class="ic-sub">${Sa&&Sb&&Sa[0]===Sb[0]?'✓ match':'✗'}</div></div>
+  </div>
+  <table class="bit-table"><thead><tr><th>Step</th><th>Operation</th><th>Result point</th><th>x bits</th><th>y bits</th></tr></thead><tbody>
+    <tr><td class="td-op">Setup</td><td>Generator G (given)</td><td class="td-char">(${G[0]},${G[1]})</td><td class="td-bin">${G[0].toString(2).padStart(8,'0')}</td><td class="td-bin">${G[1].toString(2).padStart(8,'0')}</td></tr>
+    ${tA.slice(0,4).map((pt,i)=>`<tr><td class="td-op">Alice ${i+1}</td><td>Point add/double</td><td class="td-char">(${pt[0]},${pt[1]})</td><td class="td-bin">${pt[0].toString(2).padStart(8,'0')}</td><td class="td-bin">${pt[1].toString(2).padStart(8,'0')}</td></tr>`).join('')}
+    ${Pa?`<tr><td style="color:var(--cyan)">Pa final</td><td>${ka}×G</td><td class="td-char">(${Pa[0]},${Pa[1]})</td><td class="td-bin">${Pa[0].toString(2).padStart(8,'0')}</td><td class="td-bin">${Pa[1].toString(2).padStart(8,'0')}</td></tr>`:''}
+    ${Pb?`<tr><td style="color:var(--green)">Pb final</td><td>${kb}×G</td><td class="td-char">(${Pb[0]},${Pb[1]})</td><td class="td-bin">${Pb[0].toString(2).padStart(8,'0')}</td><td class="td-bin">${Pb[1].toString(2).padStart(8,'0')}</td></tr>`:''}
+    ${Sa?`<tr><td style="color:var(--pink)">Shared S</td><td>${ka}×Pb = ${kb}×Pa</td><td class="td-res">(${Sa[0]},${Sa[1]})</td><td class="td-bin">${Sa[0].toString(2).padStart(8,'0')}</td><td class="td-bin">${Sa[1].toString(2).padStart(8,'0')}</td></tr>`:''}
+  </tbody></table></div>
+  <div class="explain-box"><span class="eq">Point addition rule:</span><br>
+  λ = (y₂−y₁)/(x₂−x₁) mod p &nbsp;|&nbsp; x₃ = λ²−x₁−x₂ mod p &nbsp;|&nbsp; y₃ = λ(x₁−x₃)−y₁ mod p<br>
+  <span class="note">Division = multiply by modular inverse. All arithmetic in GF(p).</span></div>`;
+  document.getElementById('ecc-wrap').innerHTML=html;
+  // Draw canvas
+  const canvas=document.getElementById('ecc-canvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#070b14';ctx.fillRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(0,200,255,0.05)';ctx.lineWidth=1;
+  for(let i=0;i<=p;i++){
+    const x=40+(i/p)*(W-60);ctx.beginPath();ctx.moveTo(x,10);ctx.lineTo(x,H-30);ctx.stroke();
+    const y=H-30-(i/p)*(H-40);ctx.beginPath();ctx.moveTo(40,y);ctx.lineTo(W-20,y);ctx.stroke();
+  }
+  // axes labels
+  ctx.fillStyle='rgba(0,200,255,0.4)';ctx.font='10px JetBrains Mono,monospace';
+  for(let i=0;i<=p;i+=Math.floor(p/4)){
+    const x=40+(i/p)*(W-60);const y=H-30-(i/p)*(H-40);
+    ctx.fillText(i,x-4,H-16);ctx.fillText(i,22,y+4);
+  }
+  // axes
+  ctx.strokeStyle='rgba(0,200,255,0.2)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(40,10);ctx.lineTo(40,H-28);ctx.lineTo(W-18,H-28);ctx.stroke();
+  const sx=x=>40+(x/p)*(W-60);const sy=y=>H-30-(y/p)*(H-40);
+  // all curve points
+  ctx.fillStyle='rgba(0,200,255,0.35)';
+  for(const[x,y]of allPts){ctx.beginPath();ctx.arc(sx(x),sy(y),3,0,Math.PI*2);ctx.fill();}
+  // special points
+  const drawSP=(pt,color,label)=>{
+    if(!pt)return;
+    ctx.fillStyle=color;ctx.beginPath();ctx.arc(sx(pt[0]),sy(pt[1]),7,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 11px JetBrains Mono,monospace';
+    ctx.fillText(label,sx(pt[0])+10,sy(pt[1])+4);
+  };
+  drawSP(G,'#ff8c00',`G(${G[0]},${G[1]})`);
+  drawSP(Pa,'#00c8ff',`Pa`);
+  drawSP(Pb,'#00ff9d',`Pb`);
+  if(Sa)drawSP(Sa,'#ff4db8',`S`);
+  // legend
+  ctx.font='11px JetBrains Mono,monospace';
+  const leg=[['#00c8ff','· curve points'],['#ff8c00','G generator'],['#00c8ff','Pa Alice pub'],['#00ff9d','Pb Bob pub'],['#ff4db8','S shared secret']];
+  leg.forEach(([c,l],i)=>{ctx.fillStyle=c;ctx.fillText(l,W-130,20+i*16);});
+}
+
+
+// ── ALGO PANEL TABS ──────────────────────────────────────────────────────────
+function switchAP(btn, paneId){
+  const panel = btn.closest('.algo-panel');
+  panel.querySelectorAll('.aptab').forEach(b => b.classList.remove('active'));
+  panel.querySelectorAll('.aptab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const el = document.getElementById(paneId);
+  if(el) el.classList.add('active');
+}
+
+
+// ── RESULT BANNER ─────────────────────────────────────────────────────────
+function renderResultBanner(id, inputLabel, inputVal, outputLabel, outputVal, isDecrypt=false){
+  const el=document.getElementById(id);if(!el)return;
+  const outCls=isDecrypt?'rb-output decrypt':'rb-output';
+  el.innerHTML=`<div class="result-banner">
+    <div class="rb-block rb-input">
+      <div class="rb-label">${inputLabel}</div>
+      <div class="rb-value">${inputVal||'—'}</div>
+    </div>
+    <div class="rb-arrow">→</div>
+    <div class="rb-block ${outCls}">
+      <div class="rb-label">${outputLabel}</div>
+      <div class="rb-value">${outputVal||'—'}</div>
+    </div>
+  </div>`;
+}
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+window.onload=function(){caesarViz();};
+</script>
+</body>
+</html>
